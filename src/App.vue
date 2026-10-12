@@ -39,6 +39,7 @@ const historyIndex = ref(-1);
 const hasPendingHistory = ref(false);
 let savedRange: Range | null = null;
 let historyTimer: number | undefined;
+let resizingCell = false;
 
 onMounted(init);
 
@@ -276,6 +277,82 @@ const setFontSize = (value: number) => {
     node.style.fontSize = `${value}pt`;
   });
   syncEditor(true);
+};
+
+const getResizeMode = (event: MouseEvent, cell: HTMLTableCellElement) => {
+  const rect = cell.getBoundingClientRect();
+  if (Math.abs(event.clientX - rect.right) <= 7) return 'column' as const;
+  if (Math.abs(event.clientY - rect.bottom) <= 7) return 'row' as const;
+  return null;
+};
+
+const updateCellResizeCursor = (event: MouseEvent) => {
+  if (resizingCell || !editorRef.value) return;
+  const cell = (event.target as HTMLElement).closest('td, th') as HTMLTableCellElement | null;
+  if (!cell || cell !== selectedCell.value) {
+    editorRef.value.style.cursor = '';
+    return;
+  }
+  const mode = getResizeMode(event, cell);
+  editorRef.value.style.cursor = mode === 'column' ? 'col-resize' : mode === 'row' ? 'row-resize' : '';
+};
+
+const startCellResize = (event: MouseEvent) => {
+  const cell = (event.target as HTMLElement).closest('td, th') as HTMLTableCellElement | null;
+  if (!cell || cell !== selectedCell.value) return;
+  const mode = getResizeMode(event, cell);
+  if (!mode) return;
+  const row = cell.parentElement as HTMLTableRowElement | null;
+  const table = cell.closest('table');
+  if (!row || !table) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  resizingCell = true;
+  document.body.style.userSelect = 'none';
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const startHeight = row.getBoundingClientRect().height;
+  const columnCount = Math.max(...Array.from(table.rows).map(item => item.cells.length), 1);
+  let colgroup = table.querySelector('colgroup');
+  if (!colgroup) {
+    colgroup = document.createElement('colgroup');
+    const referenceRow = Array.from(table.rows).find(item => item.cells.length === columnCount);
+    const fallbackWidth = table.getBoundingClientRect().width / columnCount;
+    for (let index = 0; index < columnCount; index += 1) {
+      const col = document.createElement('col');
+      col.style.width = `${referenceRow?.cells[index]?.getBoundingClientRect().width || fallbackWidth}px`;
+      colgroup.appendChild(col);
+    }
+    table.insertBefore(colgroup, table.firstChild);
+  }
+  const columns = Array.from(colgroup.querySelectorAll('col')) as HTMLTableColElement[];
+  const widths = columns.map(column => Number.parseFloat(column.style.width) || table.getBoundingClientRect().width / columnCount);
+  const currentIndex = Math.min(cell.cellIndex, columns.length - 1);
+  const neighborIndex = currentIndex < columns.length - 1 ? currentIndex + 1 : currentIndex - 1;
+
+  const onMove = (moveEvent: MouseEvent) => {
+    if (mode === 'row') {
+      row.style.height = `${Math.max(28, startHeight + moveEvent.clientY - startY)}px`;
+      return;
+    }
+    if (neighborIndex < 0) return;
+    const delta = (moveEvent.clientX - startX) * (neighborIndex > currentIndex ? 1 : -1);
+    const combined = widths[currentIndex] + widths[neighborIndex];
+    const nextWidth = Math.max(36, Math.min(combined - 36, widths[currentIndex] + delta));
+    columns[currentIndex].style.width = `${nextWidth}px`;
+    columns[neighborIndex].style.width = `${combined - nextWidth}px`;
+  };
+  const onUp = () => {
+    resizingCell = false;
+    document.body.style.userSelect = '';
+    if (editorRef.value) editorRef.value.style.cursor = '';
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    syncEditor(true);
+  };
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
 };
 
 const addTable = async () => {
@@ -733,6 +810,7 @@ const handleImport = async (file?: File) => {
           </div>
           <div v-if="selectedCell" class="table-context-bar">
             <strong>表格</strong>
+            <span class="resize-help">拖动蓝色右边调整列宽，拖动底边调整行高</span>
             <el-button size="small" @click="addRow('before')">上方加行</el-button>
             <el-button size="small" @click="addRow('after')">下方加行</el-button>
             <el-button size="small" @click="addColumn('before')">左侧加列</el-button>
@@ -764,6 +842,8 @@ const handleImport = async (file?: File) => {
               @input="syncEditor"
               @keyup="rememberSelection"
               @mouseup="rememberSelection"
+              @mousemove="updateCellResizeCursor"
+              @mousedown="startCellResize"
               @focus="rememberSelection"
               @click="selectEditorElement"
             />

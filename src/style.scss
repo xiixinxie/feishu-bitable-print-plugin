@@ -122,6 +122,29 @@ button { -webkit-tap-highlight-color: transparent; }
 .detail-table .detail-label { width: 18%; vertical-align: middle; text-align: left; }
 .detail-table .detail-value { width: 32%; min-height: 42px; vertical-align: middle; }
 .template-table .selected-table-cell { position: relative; outline: 2px solid #3370ff; outline-offset: -2px; background-color: #edf3ff; }
+.template-table .selected-table-cell::before {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  top: 15%;
+  right: -3px;
+  width: 6px;
+  height: 70%;
+  border-right: 3px solid #3370ff;
+  pointer-events: none;
+}
+.template-table .selected-table-cell::after {
+  content: '';
+  position: absolute;
+  z-index: 2;
+  bottom: -3px;
+  left: 15%;
+  width: 70%;
+  height: 6px;
+  border-bottom: 3px solid #3370ff;
+  pointer-events: none;
+}
+.resize-help { color: #667085; font-size: 12px; }
 .template-image { max-width: 100%; height: auto; }
 .template-image.selected-template-image { outline: 3px solid #3370ff; outline-offset: 3px; border-radius: 2px; }
 .rendered-images { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2mm; }
