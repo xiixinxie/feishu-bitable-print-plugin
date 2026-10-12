@@ -30,6 +30,8 @@ const importInput = ref<HTMLInputElement>();
 const imageInput = ref<HTMLInputElement>();
 const expandedLinks = ref(new Set<string>());
 const selectedCell = ref<HTMLTableCellElement | null>(null);
+const selectedImage = ref<HTMLImageElement | null>(null);
+const localImageWidthMm = ref(60);
 const editorHistory = ref<string[]>([]);
 const historyIndex = ref(-1);
 const hasPendingHistory = ref(false);
@@ -46,6 +48,7 @@ const getCleanEditorHtml = () => {
   if (!editorRef.value) return editorHtml.value;
   const clone = editorRef.value.cloneNode(true) as HTMLElement;
   clone.querySelectorAll('.selected-table-cell').forEach(cell => cell.classList.remove('selected-table-cell'));
+  clone.querySelectorAll('.selected-template-image').forEach(image => image.classList.remove('selected-template-image'));
   clone.querySelectorAll('td[contenteditable], th[contenteditable]').forEach(cell => cell.removeAttribute('contenteditable'));
   return clone.innerHTML;
 };
@@ -93,6 +96,7 @@ const restoreHistory = async (direction: -1 | 1) => {
   historyIndex.value = target;
   editorHtml.value = editorHistory.value[target];
   selectedCell.value = null;
+  selectedImage.value = null;
   savedRange = null;
   await nextTick();
   if (editorRef.value) editorRef.value.innerHTML = editorHtml.value;
@@ -244,6 +248,19 @@ const addDivider = () => insertHtml('<hr><p><br></p>');
 const selectEditorElement = (event: MouseEvent) => {
   const target = event.target as HTMLElement;
   editorRef.value?.querySelectorAll('.selected-table-cell').forEach(cell => cell.classList.remove('selected-table-cell'));
+  editorRef.value?.querySelectorAll('.selected-template-image').forEach(image => image.classList.remove('selected-template-image'));
+  const image = target.closest('img.template-image') as HTMLImageElement | null;
+  selectedImage.value = image;
+  if (image) {
+    selectedCell.value = null;
+    image.classList.add('selected-template-image');
+    const styledWidth = Number.parseFloat(image.style.width);
+    localImageWidthMm.value = Number.isFinite(styledWidth) && image.style.width.endsWith('mm')
+      ? styledWidth
+      : Math.max(10, Math.min(180, Math.round(image.getBoundingClientRect().width / 3.7795)));
+    rememberSelection();
+    return;
+  }
   const cell = target.closest('td, th') as HTMLTableCellElement | null;
   selectedCell.value = cell;
   if (!cell) {
@@ -433,10 +450,41 @@ const deleteCurrentTable = () => {
   syncEditor(true);
 };
 
+const setLocalImageWidth = (width: number) => {
+  const image = selectedImage.value;
+  if (!image) return;
+  const nextWidth = Math.max(10, Math.min(180, Number(width) || 60));
+  localImageWidthMm.value = nextWidth;
+  image.style.width = `${nextWidth}mm`;
+  image.style.height = 'auto';
+  image.style.maxWidth = '100%';
+  syncEditor(true);
+  image.classList.add('selected-template-image');
+  selectedImage.value = image;
+};
+
+const resetLocalImageSize = () => {
+  const image = selectedImage.value;
+  if (!image) return;
+  image.style.width = 'auto';
+  image.style.height = 'auto';
+  image.style.maxWidth = '100%';
+  localImageWidthMm.value = Math.max(10, Math.min(180, Math.round(image.naturalWidth / 3.7795) || 60));
+  syncEditor(true);
+  image.classList.add('selected-template-image');
+  selectedImage.value = image;
+};
+
+const deleteSelectedImage = () => {
+  selectedImage.value?.remove();
+  selectedImage.value = null;
+  syncEditor(true);
+};
+
 const addImage = (file?: File) => {
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = () => insertHtml(`<img class="template-image" src="${String(reader.result)}" alt="图片">`);
+  reader.onload = () => insertHtml(`<img class="template-image" src="${String(reader.result)}" alt="图片" style="width:60mm;height:auto;max-width:100%">`);
   reader.readAsDataURL(file);
 };
 
@@ -652,6 +700,15 @@ const handleImport = async (file?: File) => {
             <el-button size="small" @click="deleteRow">删除行</el-button>
             <el-button size="small" @click="deleteColumn">删除列</el-button>
             <el-button size="small" type="danger" plain @click="deleteCurrentTable">删除表格</el-button>
+          </div>
+          <div v-if="selectedImage" class="image-context-bar">
+            <strong>图片大小</strong>
+            <el-button size="small" @click="setLocalImageWidth(localImageWidthMm - 10)">缩小</el-button>
+            <el-input-number v-model="localImageWidthMm" size="small" :min="10" :max="180" :step="5" controls-position="right" @change="value => setLocalImageWidth(Number(value))" />
+            <span>mm</span>
+            <el-button size="small" @click="setLocalImageWidth(localImageWidthMm + 10)">放大</el-button>
+            <el-button size="small" @click="resetLocalImageSize">原始比例</el-button>
+            <el-button size="small" type="danger" plain @click="deleteSelectedImage">删除图片</el-button>
           </div>
           <section class="print-sheet" :class="orientation">
             <div
