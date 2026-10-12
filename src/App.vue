@@ -24,6 +24,7 @@ const editorRef = ref<HTMLElement>();
 const importInput = ref<HTMLInputElement>();
 const imageInput = ref<HTMLInputElement>();
 const expandedLinks = ref(new Set<string>());
+const selectedCell = ref<HTMLTableCellElement | null>(null);
 let savedRange: Range | null = null;
 
 onMounted(init);
@@ -48,7 +49,9 @@ const rememberSelection = () => {
 };
 
 const syncEditor = () => {
+  selectedCell.value?.classList.remove('selected-table-cell');
   editorHtml.value = editorRef.value?.innerHTML || '';
+  selectedCell.value?.classList.add('selected-table-cell');
   rememberSelection();
 };
 
@@ -92,8 +95,99 @@ const command = (name: string, value?: string) => {
   syncEditor();
 };
 
-const addTable = () => insertHtml('<table class="template-table"><thead><tr><th>标题</th><th>标题</th><th>标题</th></tr></thead><tbody><tr><td><br></td><td><br></td><td><br></td></tr></tbody></table><p><br></p>');
+const addTable = () => {
+  if (selectedCell.value) return;
+  insertHtml('<table class="template-table"><thead><tr><th>标题</th><th>标题</th><th>标题</th></tr></thead><tbody><tr><td><br></td><td><br></td><td><br></td></tr></tbody></table><p><br></p>');
+};
 const addDivider = () => insertHtml('<hr><p><br></p>');
+
+const selectEditorElement = (event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+  editorRef.value?.querySelectorAll('.selected-table-cell').forEach(cell => cell.classList.remove('selected-table-cell'));
+  const cell = target.closest('td, th') as HTMLTableCellElement | null;
+  selectedCell.value = cell;
+  cell?.classList.add('selected-table-cell');
+  rememberSelection();
+};
+
+const makeCell = (tagName: 'td' | 'th') => {
+  const cell = document.createElement(tagName);
+  cell.innerHTML = '<br>';
+  return cell;
+};
+
+const finishTableEdit = async (table: HTMLTableElement, rowIndex: number, cellIndex: number) => {
+  const tableIndex = Array.from(editorRef.value?.querySelectorAll('table') || []).indexOf(table);
+  selectedCell.value?.classList.remove('selected-table-cell');
+  editorHtml.value = editorRef.value?.innerHTML || '';
+  selectedCell.value = null;
+  await nextTick();
+  const liveTable = editorRef.value?.querySelectorAll('table')[tableIndex] as HTMLTableElement | undefined;
+  selectedCell.value = liveTable?.rows[rowIndex]?.cells[cellIndex] || null;
+  selectedCell.value?.classList.add('selected-table-cell');
+};
+
+const addRow = async (where: 'before' | 'after') => {
+  const cell = selectedCell.value;
+  const row = cell?.parentElement as HTMLTableRowElement | null;
+  if (!cell || !row) return;
+  const table = row.closest('table');
+  if (!table) return;
+  const newRow = document.createElement('tr');
+  const columnCount = (table.rows[0]?.cells.length || row.cells.length || 1);
+  for (let index = 0; index < columnCount; index += 1) newRow.appendChild(makeCell('td'));
+  row.parentElement?.insertBefore(newRow, where === 'before' ? row : row.nextSibling);
+  selectedCell.value = newRow.cells[Math.min(cell.cellIndex, newRow.cells.length - 1)] || newRow.cells[0] || null;
+  editorRef.value?.querySelectorAll('.selected-table-cell').forEach(item => item.classList.remove('selected-table-cell'));
+  selectedCell.value?.classList.add('selected-table-cell');
+  await finishTableEdit(table, newRow.rowIndex, selectedCell.value?.cellIndex || 0);
+};
+
+const addColumn = async (where: 'before' | 'after') => {
+  const cell = selectedCell.value;
+  const table = cell?.closest('table');
+  if (!cell || !table) return;
+  const selectedRowIndex = (cell.parentElement as HTMLTableRowElement | null)?.rowIndex || 0;
+  const index = cell.cellIndex + (where === 'after' ? 1 : 0);
+  Array.from(table.rows).forEach(row => {
+    const reference = row.cells[index] || null;
+    const sample = row.cells[Math.min(cell.cellIndex, row.cells.length - 1)];
+    const tagName = sample?.tagName === 'TH' ? 'th' : 'td';
+    row.insertBefore(makeCell(tagName), reference);
+  });
+  selectedCell.value = table.rows[selectedRowIndex]?.cells[index] || cell;
+  editorRef.value?.querySelectorAll('.selected-table-cell').forEach(item => item.classList.remove('selected-table-cell'));
+  selectedCell.value?.classList.add('selected-table-cell');
+  await finishTableEdit(table, selectedRowIndex, index);
+};
+
+const deleteRow = () => {
+  const cell = selectedCell.value;
+  const row = cell?.parentElement as HTMLTableRowElement | null;
+  const table = cell?.closest('table');
+  if (!row || !table) return;
+  if (table.rows.length <= 1) table.remove();
+  else row.remove();
+  selectedCell.value = null;
+  syncEditor();
+};
+
+const deleteColumn = () => {
+  const cell = selectedCell.value;
+  const table = cell?.closest('table');
+  if (!cell || !table) return;
+  const index = cell.cellIndex;
+  if ((table.rows[0]?.cells.length || 0) <= 1) table.remove();
+  else Array.from(table.rows).forEach(row => row.cells[index]?.remove());
+  selectedCell.value = null;
+  syncEditor();
+};
+
+const deleteCurrentTable = () => {
+  selectedCell.value?.closest('table')?.remove();
+  selectedCell.value = null;
+  syncEditor();
+};
 
 const addImage = (file?: File) => {
   if (!file) return;
@@ -278,6 +372,17 @@ const handleImport = async (file?: File) => {
             <span><el-icon><EditPen /></el-icon>{{ templateName }}</span>
             <span>{{ rows.length ? `已载入 ${rows.length} 条记录` : '设计模式' }}</span>
           </div>
+          <div v-if="selectedCell" class="table-context-bar">
+            <strong>表格</strong>
+            <el-button size="small" @click="addRow('before')">上方加行</el-button>
+            <el-button size="small" @click="addRow('after')">下方加行</el-button>
+            <el-button size="small" @click="addColumn('before')">左侧加列</el-button>
+            <el-button size="small" @click="addColumn('after')">右侧加列</el-button>
+            <span class="table-tool-divider" />
+            <el-button size="small" @click="deleteRow">删除行</el-button>
+            <el-button size="small" @click="deleteColumn">删除列</el-button>
+            <el-button size="small" type="danger" plain @click="deleteCurrentTable">删除表格</el-button>
+          </div>
           <section class="print-sheet" :class="orientation">
             <div
               ref="editorRef"
@@ -289,6 +394,7 @@ const handleImport = async (file?: File) => {
               @keyup="rememberSelection"
               @mouseup="rememberSelection"
               @focus="rememberSelection"
+              @click="selectEditorElement"
             />
           </section>
         </main>
