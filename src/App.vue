@@ -238,6 +238,10 @@ const handleImport = async (file?: File) => {
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
           <div class="field-help">点击右侧 <b>＋</b> 插入字段；关联字段可展开一层。</div>
+          <div v-if="errorMessage" class="field-error">
+            <span>{{ errorMessage }}</span>
+            <el-button size="small" @click="init">重新读取</el-button>
+          </div>
           <div class="special-fields">
             <button @click="insertSpecial('index', '自增序号')"><span class="type-badge blue">#</span><strong>自增序号</strong><el-icon><Plus /></el-icon></button>
             <button @click="insertSpecial('count', '计算总数')"><span class="type-badge green">总数</span><strong>计算总数</strong><el-icon><Plus /></el-icon></button>

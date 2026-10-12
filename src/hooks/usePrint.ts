@@ -36,6 +36,15 @@ const usePrint = () => {
     try { sdk.value?.bitable.ui.showToast({ toastType, message }); } catch { /* outside Feishu */ }
   };
 
+  const getCurrentContext = async () => {
+    if (!sdk.value) throw new Error('飞书 SDK 尚未加载');
+    const selection = await sdk.value.bitable.base.getSelection();
+    if (!selection.tableId || !selection.viewId) throw new Error('没有取得当前数据表或视图，请回到表格视图后重试');
+    const table = await sdk.value.bitable.base.getTableById(selection.tableId);
+    const view = await table.getViewById(selection.viewId);
+    return { selection, table, view };
+  };
+
   const readSavedTemplates = async () => {
     let saved: unknown;
     try { saved = await sdk.value?.bitable.bridge.getData<PrintTemplate[]>(TEMPLATE_KEY); } catch { /* fallback */ }
@@ -89,14 +98,12 @@ const usePrint = () => {
     loading.value = true;
     errorMessage.value = '';
     try {
-      const table = await sdk.value.bitable.base.getActiveTable();
-      const view = await table.getActiveView();
+      const { selection, table, view } = await getCurrentContext();
       let recordIds: string[] = [];
       if (printScope.value === 'selected') {
         try { recordIds = await (view as typeof view & { getSelectedRecordIdList: () => Promise<string[]> }).getSelectedRecordIdList(); } catch { recordIds = []; }
         if (!recordIds.length) {
           try {
-            const selection = await sdk.value.bitable.base.getSelection();
             if (selection.recordId) recordIds = [selection.recordId];
           } catch { /* no selection */ }
         }
@@ -133,15 +140,10 @@ const usePrint = () => {
     errorMessage.value = '';
     try {
       sdk.value = await import('@lark-base-open/js-sdk');
-      const table = await sdk.value.bitable.base.getActiveTable();
-      const view = await table.getActiveView();
-      const [selection, name, metas, visibleIds] = await Promise.all([
-        sdk.value.bitable.base.getSelection().catch(() => null), table.getName(), table.getFieldMetaList(), view.getVisibleFieldIdList(),
-      ]);
-      tableId.value = selection?.tableId || table.id || '';
-      tableName.value = name;
-      const metaMap = new Map((metas as FieldMetaLite[]).map(field => [field.id, field]));
-      fieldList.value = visibleIds.map(id => metaMap.get(id)).filter(Boolean) as FieldMetaLite[];
+      const { selection, table, view } = await getCurrentContext();
+      tableId.value = selection.tableId || '';
+      try { tableName.value = await table.getName(); } catch { tableName.value = '当前数据表'; }
+      fieldList.value = await view.getFieldMetaList() as FieldMetaLite[];
       connectionReady.value = true;
       await readSavedTemplates();
       await loadRows();
