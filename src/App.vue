@@ -714,7 +714,21 @@ const exportPdf = async () => {
         logging: false,
       });
       if (index > 0) pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
-      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+      const fitScale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
+      const renderWidth = canvas.width * fitScale;
+      const renderHeight = canvas.height * fitScale;
+      const offsetX = (pageWidth - renderWidth) / 2;
+      const offsetY = (pageHeight - renderHeight) / 2;
+      pdf.addImage(
+        canvas.toDataURL('image/jpeg', 0.95),
+        'JPEG',
+        offsetX,
+        offsetY,
+        renderWidth,
+        renderHeight,
+        undefined,
+        'FAST',
+      );
     }
     const safeName = (templateName.value || tableName.value || 'xii打印').replace(/[\\/:*?"<>|]/g, '-');
     pdf.save(`${safeName}.pdf`);
