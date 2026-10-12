@@ -63,11 +63,11 @@ button { -webkit-tap-highlight-color: transparent; }
 .toolbar-spacer { flex: 1; }
 .workspace { height: calc(100% - 62px); display: flex; }
 
-.field-panel { position: relative; z-index: 3; width: 320px; flex: 0 0 320px; display: flex; flex-direction: column; background: #fff; border-right: 1px solid #d8dee8; box-shadow: 5px 0 18px rgba(31,46,78,.08); }
+.field-panel { position: relative; z-index: 3; width: 320px; min-width: 0; flex: 0 0 320px; display: flex; flex-direction: column; overflow: hidden; background: #fff; border-right: 1px solid #d8dee8; box-shadow: 5px 0 18px rgba(31,46,78,.08); }
 .panel-heading { display: flex; align-items: center; justify-content: space-between; padding: 18px 18px 7px; }
 .panel-heading strong { display: block; font-size: 20px; }
 .panel-heading small { display: block; max-width: 230px; margin-top: 5px; overflow: hidden; color: #8791a2; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.field-search { width: auto; margin: 10px 16px; }
+.field-search { width: calc(100% - 32px) !important; max-width: calc(100% - 32px); margin: 10px 16px; align-self: stretch; }
 .field-help { margin: 0 18px 12px; color: #8a94a6; font-size: 12px; line-height: 1.5; }
 .field-error { display: grid; gap: 8px; margin: 0 16px 12px; padding: 10px 11px; color: #8f4f0d; background: #fff7e8; border: 1px solid #ffd6a1; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .field-error .el-button { justify-self: start; }
