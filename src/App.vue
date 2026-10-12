@@ -12,7 +12,7 @@ const {
   imageWidthMm, imageHeightMm, imageFit,
   printScope, loading, connectionReady, errorMessage, previewPages, init, refreshFields, loadRows, loadLinkedFields,
   isLinkField, isMultiLink, createTemplate, openTemplate, saveTemplate, deleteTemplate,
-  exportTemplates, importTemplates,
+  exportTemplates, importTemplates, notify,
 } = usePrint();
 
 const page = ref<'home' | 'editor'>('home');
@@ -26,6 +26,7 @@ const autoTableTitle = ref('');
 const autoTableFields = ref<string[]>([]);
 const autoIncludeIndex = ref(true);
 const autoLayoutMode = ref<'auto' | 'list' | 'detail'>('auto');
+const pdfExporting = ref(false);
 const editorRef = ref<HTMLElement>();
 const importInput = ref<HTMLInputElement>();
 const imageInput = ref<HTMLInputElement>();
@@ -637,6 +638,73 @@ const printNow = async () => {
 
 const printPreview = () => window.print();
 
+const waitForImages = async (root: HTMLElement) => {
+  await Promise.all(Array.from(root.querySelectorAll('img')).map(async image => {
+    if (image.complete) {
+      try { await image.decode(); } catch { /* keep rendering other content */ }
+      return;
+    }
+    await new Promise<void>(resolve => {
+      image.addEventListener('load', () => resolve(), { once: true });
+      image.addEventListener('error', () => resolve(), { once: true });
+    });
+  }));
+};
+
+const exportPdf = async () => {
+  if (pdfExporting.value) return;
+  pdfExporting.value = true;
+  let stage: HTMLDivElement | null = null;
+  try {
+    syncEditor(true);
+    // When the plugin is temporarily disconnected, export the data already loaded
+    // instead of leaving the button spinning forever.
+    if (connectionReady.value) await loadRows();
+    await nextTick();
+    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+    const landscape = orientation.value === 'landscape';
+    const pageWidth = landscape ? 297 : 210;
+    const pageHeight = landscape ? 210 : 297;
+    const pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4', compress: true });
+
+    stage = document.createElement('div');
+    stage.style.cssText = 'position:fixed;left:-20000px;top:0;background:#fff;z-index:-1;';
+    previewPages.value.forEach(html => {
+      const sheet = document.createElement('section');
+      sheet.className = `print-sheet preview-sheet ${orientation.value}`;
+      sheet.style.margin = '0';
+      const content = document.createElement('div');
+      content.className = 'rendered-document';
+      content.innerHTML = html;
+      sheet.appendChild(content);
+      stage!.appendChild(sheet);
+    });
+    document.body.appendChild(stage);
+    await waitForImages(stage);
+
+    const sheets = Array.from(stage.querySelectorAll<HTMLElement>('.print-sheet'));
+    for (let index = 0; index < sheets.length; index += 1) {
+      const canvas = await html2canvas(sheets[index], {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+      });
+      if (index > 0) pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageWidth, pageHeight, undefined, 'FAST');
+    }
+    const safeName = (templateName.value || tableName.value || 'xii打印').replace(/[\\/:*?"<>|]/g, '-');
+    pdf.save(`${safeName}.pdf`);
+    notify(`PDF 已导出，共 ${sheets.length} 页`);
+  } catch (error) {
+    notify(error instanceof Error ? `PDF 导出失败：${error.message}` : 'PDF 导出失败，请重试', 'error');
+  } finally {
+    stage?.remove();
+    pdfExporting.value = false;
+  }
+};
+
 const handleImport = async (file?: File) => {
   if (file) await importTemplates(file);
   if (importInput.value) importInput.value.value = '';
@@ -755,6 +823,7 @@ const handleImport = async (file?: File) => {
         </el-select>
         <el-button :loading="loading" @click="loadRows"><el-icon><Refresh /></el-icon></el-button>
         <el-button @click="showPreview">预览</el-button>
+        <el-button :loading="pdfExporting" @click="exportPdf"><el-icon><Download /></el-icon>导出 PDF</el-button>
         <el-button type="primary" @click="openSave">保存</el-button>
       </div>
 
@@ -901,7 +970,10 @@ const handleImport = async (file?: File) => {
     <el-dialog v-model="previewMode" class="preview-dialog" title="打印预览" width="94%" top="3vh" destroy-on-close>
       <div class="preview-actions">
         <span>{{ rows.length }} 条记录 · {{ previewPages.length }} 页 · {{ orientation === 'portrait' ? 'A4 纵向' : 'A4 横向' }}</span>
-        <el-button type="primary" @click="printPreview"><el-icon><Printer /></el-icon>打印</el-button>
+        <div>
+          <el-button :loading="pdfExporting" @click="exportPdf"><el-icon><Download /></el-icon>导出 PDF</el-button>
+          <el-button type="primary" @click="printPreview"><el-icon><Printer /></el-icon>打印</el-button>
+        </div>
       </div>
       <div v-loading="loading" class="preview-stage">
         <section v-for="(html, index) in previewPages" :key="index" class="print-sheet preview-sheet" :class="orientation">
