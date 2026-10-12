@@ -266,17 +266,39 @@ const command = (name: string, value?: string) => {
 
 const setFontSize = (value: number) => {
   fontSizePt.value = value;
-  editorRef.value?.focus();
-  if (savedRange) {
-    const selection = window.getSelection();
+  const editor = editorRef.value;
+  if (!editor) return;
+  editor.focus();
+  const selection = window.getSelection();
+  const range = savedRange?.cloneRange();
+  const isEditorRange = Boolean(range && editor.contains(range.commonAncestorContainer));
+
+  if (range && isEditorRange && !range.collapsed) {
     selection?.removeAllRanges();
-    selection?.addRange(savedRange);
+    selection?.addRange(range);
+    try {
+      const wrapper = document.createElement('span');
+      wrapper.style.fontSize = `${value}pt`;
+      wrapper.appendChild(range.extractContents());
+      range.insertNode(wrapper);
+      range.selectNodeContents(wrapper);
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      savedRange = range.cloneRange();
+    } catch {
+      document.execCommand('fontSize', false, '7');
+      editor.querySelectorAll<HTMLElement>('font[size="7"]').forEach(node => {
+        node.removeAttribute('size');
+        node.style.fontSize = `${value}pt`;
+      });
+    }
+  } else {
+    const rangeElement = range
+      ? (range.startContainer.nodeType === Node.ELEMENT_NODE ? range.startContainer as Element : range.startContainer.parentElement)
+      : null;
+    const target = selectedCell.value || rangeElement?.closest<HTMLElement>('h1, h2, h3, p, td, th, li');
+    if (target && editor.contains(target)) target.style.fontSize = `${value}pt`;
   }
-  document.execCommand('fontSize', false, '7');
-  editorRef.value?.querySelectorAll<HTMLElement>('font[size="7"]').forEach(node => {
-    node.removeAttribute('size');
-    node.style.fontSize = `${value}pt`;
-  });
   syncEditor(true);
 };
 
@@ -782,10 +804,10 @@ const handleImport = async (file?: File) => {
         <el-button text title="撤回" :disabled="!canUndo" @click="restoreHistory(-1)">↶</el-button>
         <el-button text title="重做" :disabled="!canRedo" @click="restoreHistory(1)">↷</el-button>
         <span class="tool-divider" />
-        <el-select size="small" model-value="正文" style="width: 106px" @change="value => command('formatBlock', value === '正文' ? 'p' : value as string)">
+        <el-select class="text-style-select" size="small" model-value="正文" style="width: 106px" @mousedown="rememberSelection" @change="value => command('formatBlock', value === '正文' ? 'p' : value as string)">
           <el-option label="正文" value="正文" /><el-option label="标题 1" value="h1" /><el-option label="标题 2" value="h2" />
         </el-select>
-        <el-select v-model="fontSizePt" size="small" style="width: 82px" @change="value => setFontSize(Number(value))">
+        <el-select v-model="fontSizePt" class="font-size-select" size="small" style="width: 82px" @mousedown="rememberSelection" @change="value => setFontSize(Number(value))">
           <el-option v-for="size in [10, 12, 16, 24, 32, 36, 48, 56, 72]" :key="size" :label="`${size} pt`" :value="size" />
         </el-select>
         <el-button text title="加粗" @mousedown.prevent="command('bold')"><strong>B</strong></el-button>

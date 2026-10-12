@@ -59,6 +59,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .editor-toolbar { height: 62px; display: flex; align-items: center; gap: 3px; padding: 0 14px; background: #fff; border-bottom: 1px solid #dfe4ec; white-space: nowrap; }
 .editor-toolbar .el-button { color: #52647f; font-size: 17px; }
 .editor-toolbar .primary-add { width: 44px; color: #fff; font-size: 20px; }
+.editor-toolbar .text-style-select, .editor-toolbar .font-size-select { flex: 0 0 auto; }
 .tool-divider { width: 1px; height: 28px; margin: 0 7px; background: #e1e5ec; }
 .toolbar-spacer { flex: 1; }
 .workspace { height: calc(100% - 62px); display: flex; }
