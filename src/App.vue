@@ -726,6 +726,7 @@ const exportPdf = async () => {
     await waitForImages(stage);
 
     const sheets = Array.from(stage.querySelectorAll<HTMLElement>('.print-sheet'));
+    let pdfPageCount = 0;
     for (let index = 0; index < sheets.length; index += 1) {
       const canvas = await html2canvas(sheets[index], {
         backgroundColor: '#ffffff',
@@ -735,26 +736,48 @@ const exportPdf = async () => {
         imageTimeout: 5000,
         logging: false,
       });
-      if (index > 0) pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
-      const fitScale = Math.min(pageWidth / canvas.width, pageHeight / canvas.height);
-      const renderWidth = canvas.width * fitScale;
-      const renderHeight = canvas.height * fitScale;
-      const offsetX = (pageWidth - renderWidth) / 2;
-      const offsetY = (pageHeight - renderHeight) / 2;
-      pdf.addImage(
-        canvas.toDataURL('image/jpeg', 0.95),
-        'JPEG',
-        offsetX,
-        offsetY,
-        renderWidth,
-        renderHeight,
-        undefined,
-        'FAST',
-      );
+      // Keep the preview width at the full paper width. If a merged table grows
+      // taller than one A4 page, slice it vertically across multiple PDF pages
+      // instead of shrinking the entire long canvas into a narrow portrait strip.
+      const pageSliceHeight = Math.max(1, Math.floor(canvas.width * pageHeight / pageWidth));
+      const sheetRect = sheets[index].getBoundingClientRect();
+      const canvasScale = canvas.width / Math.max(1, sheetRect.width);
+      const detailBlocks = Array.from(sheets[index].querySelectorAll<HTMLElement>('.merged-detail-record'));
+      const breakElements = detailBlocks.length
+        ? detailBlocks
+        : Array.from(sheets[index].querySelectorAll<HTMLElement>('tr'));
+      const safeBreaks = breakElements
+        .map(element => Math.round((element.getBoundingClientRect().bottom - sheetRect.top) * canvasScale))
+        .filter(position => position > 0 && position < canvas.height)
+        .sort((left, right) => left - right);
+
+      for (let sourceY = 0; sourceY < canvas.height;) {
+        const idealEnd = Math.min(sourceY + pageSliceHeight, canvas.height);
+        let pageEnd = idealEnd;
+        if (idealEnd < canvas.height) {
+          const minimumUsefulEnd = sourceY + pageSliceHeight * 0.35;
+          const safeEnd = [...safeBreaks].reverse().find(position => position <= idealEnd && position >= minimumUsefulEnd);
+          if (safeEnd) pageEnd = safeEnd;
+        }
+        const sliceHeight = Math.max(1, pageEnd - sourceY);
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = sliceHeight;
+        const context = slice.getContext('2d');
+        if (!context) throw new Error('无法创建 PDF 页面画布');
+        context.fillStyle = '#ffffff';
+        context.fillRect(0, 0, slice.width, slice.height);
+        context.drawImage(canvas, 0, sourceY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
+        if (pdfPageCount > 0) pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
+        const renderedHeight = sliceHeight * pageWidth / canvas.width;
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageWidth, renderedHeight, undefined, 'FAST');
+        pdfPageCount += 1;
+        sourceY = pageEnd;
+      }
     }
     const safeName = (templateName.value || tableName.value || 'xii打印').replace(/[\\/:*?"<>|]/g, '-');
     pdf.save(`${safeName}.pdf`);
-    notify(`PDF 已导出，共 ${sheets.length} 页`);
+    notify(`PDF 已导出，共 ${pdfPageCount} 页`);
   } catch (error) {
     notify(error instanceof Error ? `PDF 导出失败：${error.message}` : 'PDF 导出失败，请重试', 'error');
   } finally {
