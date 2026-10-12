@@ -119,6 +119,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .template-table { width: 100%; margin: 10px 0; border-collapse: collapse; table-layout: fixed; }
 .template-table th, .template-table td { min-height: 34px; padding: 6px 8px; border: 1px solid #252b35; vertical-align: top; }
 .template-table th { background: #f0f2f5; text-align: center; }
+.detail-table .detail-label { width: 18%; vertical-align: middle; text-align: left; }
+.detail-table .detail-value { width: 32%; min-height: 42px; vertical-align: middle; }
 .template-table .selected-table-cell { position: relative; outline: 2px solid #3370ff; outline-offset: -2px; background-color: #edf3ff; }
 .template-image { max-width: 100%; height: auto; }
 .template-image.selected-template-image { outline: 3px solid #3370ff; outline-offset: 3px; border-radius: 2px; }
@@ -142,6 +144,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .auto-table-form { display: grid; gap: 16px; }
 .auto-table-title { display: grid; grid-template-columns: 82px 1fr; align-items: center; gap: 12px; }
 .auto-table-title > span { color: #4f596b; font-size: 13px; font-weight: 600; }
+.auto-table-title .el-radio-group { justify-self: start; }
 .auto-table-field-heading { display: flex; align-items: center; justify-content: space-between; padding-top: 2px; }
 .auto-table-field-heading > div:first-child { display: flex; align-items: baseline; gap: 9px; }
 .auto-table-field-heading strong { font-size: 14px; }

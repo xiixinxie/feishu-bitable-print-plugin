@@ -25,6 +25,7 @@ const autoTableDialog = ref(false);
 const autoTableTitle = ref('');
 const autoTableFields = ref<string[]>([]);
 const autoIncludeIndex = ref(true);
+const autoLayoutMode = ref<'auto' | 'list' | 'detail'>('auto');
 const editorRef = ref<HTMLElement>();
 const importInput = ref<HTMLInputElement>();
 const imageInput = ref<HTMLInputElement>();
@@ -117,6 +118,7 @@ const setAutoTableDefaults = () => {
   autoTableTitle.value = `${tableName.value || '当前表'}清单`;
   autoTableFields.value = fieldList.value.slice(0, 8).map(field => field.id);
   autoIncludeIndex.value = true;
+  autoLayoutMode.value = 'auto';
 };
 
 const openAutoTable = async () => {
@@ -196,19 +198,36 @@ const generateAutoTable = () => {
   createTemplate();
   const title = autoTableTitle.value.trim() || `${tableName.value || '当前表'}清单`;
   templateName.value = title;
-  outputMode.value = 'merge-records';
-  orientation.value = fields.length + (autoIncludeIndex.value ? 1 : 0) >= 6 ? 'landscape' : 'portrait';
+  const layout = autoLayoutMode.value === 'auto'
+    ? (fields.length > 8 ? 'detail' : 'list')
+    : autoLayoutMode.value;
 
-  const headers = [
-    ...(autoIncludeIndex.value ? ['序号'] : []),
-    ...fields.map(field => escapeEditorHtml(field.name)),
-  ].map(label => `<th>${label}</th>`).join('');
-  const cells = [
-    ...(autoIncludeIndex.value ? [tokenHtml('自增序号', 'index')] : []),
-    ...fields.map(field => tokenHtml(field.name, 'field', field.id)),
-  ].map(token => `<td>${token}</td>`).join('');
-
-  editorHtml.value = `<h2 style="text-align:center">${escapeEditorHtml(title)}</h2><table class="template-table"><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table><p><br></p>`;
+  if (layout === 'detail') {
+    outputMode.value = 'one-per-record';
+    orientation.value = 'portrait';
+    const entries = [
+      ...(autoIncludeIndex.value ? [{ label: '序号', token: tokenHtml('自增序号', 'index') }] : []),
+      ...fields.map(field => ({ label: escapeEditorHtml(field.name), token: tokenHtml(field.name, 'field', field.id) })),
+    ];
+    const detailRows: string[] = [];
+    for (let index = 0; index < entries.length; index += 2) {
+      const pair = entries.slice(index, index + 2);
+      detailRows.push(`<tr>${pair.map(item => `<th class="detail-label">${item.label}</th><td class="detail-value">${item.token}</td>`).join('')}${pair.length < 2 ? '<th class="detail-label"></th><td class="detail-value"></td>' : ''}</tr>`);
+    }
+    editorHtml.value = `<h2 style="text-align:center">${escapeEditorHtml(title)}</h2><table class="template-table detail-table"><tbody>${detailRows.join('')}</tbody></table><p><br></p>`;
+  } else {
+    outputMode.value = 'merge-records';
+    orientation.value = fields.length + (autoIncludeIndex.value ? 1 : 0) >= 6 ? 'landscape' : 'portrait';
+    const headers = [
+      ...(autoIncludeIndex.value ? ['序号'] : []),
+      ...fields.map(field => escapeEditorHtml(field.name)),
+    ].map(label => `<th>${label}</th>`).join('');
+    const cells = [
+      ...(autoIncludeIndex.value ? [tokenHtml('自增序号', 'index')] : []),
+      ...fields.map(field => tokenHtml(field.name, 'field', field.id)),
+    ].map(token => `<td>${token}</td>`).join('');
+    editorHtml.value = `<h2 style="text-align:center">${escapeEditorHtml(title)}</h2><table class="template-table"><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table><p><br></p>`;
+  }
   autoTableDialog.value = false;
   page.value = 'editor';
   nextTick(() => {
@@ -742,6 +761,14 @@ const handleImport = async (file?: File) => {
           <span>模板标题</span>
           <el-input v-model="autoTableTitle" placeholder="例如：生产排期、采购清单" />
         </label>
+        <label class="auto-table-title">
+          <span>排版方式</span>
+          <el-radio-group v-model="autoLayoutMode">
+            <el-radio-button value="auto">自动</el-radio-button>
+            <el-radio-button value="list">横向清单</el-radio-button>
+            <el-radio-button value="detail">分行详情</el-radio-button>
+          </el-radio-group>
+        </label>
         <div class="auto-table-field-heading">
           <div><strong>选择要打印的字段</strong><small>已选择 {{ autoTableFields.length }} 个</small></div>
           <div>
@@ -761,7 +788,7 @@ const handleImport = async (file?: File) => {
           <el-button type="primary" plain :loading="loading" @click="retryAutoTableFields">重新读取字段</el-button>
         </div>
         <el-checkbox v-model="autoIncludeIndex">自动添加序号列</el-checkbox>
-        <p class="auto-table-tip">生成后仍可调整列宽、增删行列和插入图片。字段较多时会自动使用 A4 横向。</p>
+        <p class="auto-table-tip">“自动”会在字段超过 8 个时改为分行详情，每行两组字段并继续向下排版；生成后仍可调整表格。</p>
       </div>
       <template #footer>
         <el-button @click="autoTableDialog = false">取消</el-button>

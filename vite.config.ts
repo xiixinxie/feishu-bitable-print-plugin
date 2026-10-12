@@ -12,6 +12,15 @@ import Components from 'unplugin-vue-components/vite'
 // https://vite.dev/config/
 export default defineConfig({
   base: './',
+  build: {
+    rollupOptions: {
+      output: {
+        entryFileNames: 'assets/[name]-[hash]-v19.js',
+        chunkFileNames: 'assets/[name]-[hash]-v19.js',
+        assetFileNames: 'assets/[name]-[hash]-v19.[ext]',
+      },
+    },
+  },
   plugins: [
     vue(),
     Icons({
