@@ -10,7 +10,7 @@ import type { FieldMetaLite } from './types';
 const {
   tableName, fieldList, linkedGroups, rows, templates, templateName, editorHtml, orientation, outputMode,
   imageWidthMm, imageHeightMm, imageFit,
-  printScope, loading, connectionReady, errorMessage, previewPages, init, refreshFields, loadRows, loadLinkedFields,
+  printScope, loading, connectionReady, errorMessage, previewPages, isDetailTemplate, init, refreshFields, loadRows, loadLinkedFields,
   isLinkField, isMultiLink, createTemplate, openTemplate, saveTemplate, deleteTemplate,
   exportTemplates, importTemplates, notify,
 } = usePrint();
@@ -217,7 +217,7 @@ const generateAutoTable = () => {
       const pair = entries.slice(index, index + 2);
       detailRows.push(`<tr>${pair.map(item => `<th class="detail-label">${item.label}</th><td class="detail-value">${item.token}</td>`).join('')}${pair.length < 2 ? '<th class="detail-label"></th><td class="detail-value"></td>' : ''}</tr>`);
     }
-    editorHtml.value = `<h2 style="text-align:center">${escapeEditorHtml(title)}</h2><table class="template-table detail-table"><tbody>${detailRows.join('')}</tbody></table><p><br></p>`;
+    editorHtml.value = `<h2 style="text-align:center">${escapeEditorHtml(title)}</h2><table class="template-table detail-table" data-record-layout="detail"><tbody>${detailRows.join('')}</tbody></table><p><br></p>`;
   } else {
     outputMode.value = 'merge-records';
     orientation.value = fields.length + (autoIncludeIndex.value ? 1 : 0) >= 6 ? 'landscape' : 'portrait';
@@ -229,7 +229,7 @@ const generateAutoTable = () => {
       ...(autoIncludeIndex.value ? [tokenHtml('自增序号', 'index')] : []),
       ...fields.map(field => tokenHtml(field.name, 'field', field.id)),
     ].map(token => `<td>${token}</td>`).join('');
-    editorHtml.value = `<h2 style="text-align:center">${escapeEditorHtml(title)}</h2><table class="template-table"><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table><p><br></p>`;
+    editorHtml.value = `<h2 style="text-align:center">${escapeEditorHtml(title)}</h2><table class="template-table" data-record-layout="list"><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table><p><br></p>`;
   }
   autoTableDialog.value = false;
   page.value = 'editor';
@@ -802,220 +802,4 @@ const handleImport = async (file?: File) => {
             <span class="create-icon"><el-icon><Plus /></el-icon></span>
             <strong>创建新模板</strong>
             <span>从空白 A4 画布开始设计</span>
-          </button>
-          <button class="create-card auto-create-card" @click="openAutoTable">
-            <span class="create-icon"><el-icon><Grid /></el-icon></span>
-            <strong>自动生成表格</strong>
-            <span>选择字段，自动创建多条记录打印清单</span>
-          </button>
-        </div>
-      </section>
-    </section>
-
-    <section v-else class="editor-page">
-      <div class="editor-toolbar">
-        <el-button class="primary-add" type="primary" @click="fieldPanelOpen = !fieldPanelOpen"><el-icon><Plus /></el-icon></el-button>
-        <el-button text title="撤回" :disabled="!canUndo" @click="restoreHistory(-1)">↶</el-button>
-        <el-button text title="重做" :disabled="!canRedo" @click="restoreHistory(1)">↷</el-button>
-        <span class="tool-divider" />
-        <el-select class="text-style-select" size="small" model-value="正文" style="width: 106px" @mousedown="rememberSelection" @change="value => command('formatBlock', value === '正文' ? 'p' : value as string)">
-          <el-option label="正文" value="正文" /><el-option label="标题 1" value="h1" /><el-option label="标题 2" value="h2" />
-        </el-select>
-        <el-select v-model="fontSizePt" class="font-size-select" size="small" style="width: 82px" @mousedown="rememberSelection" @change="value => setFontSize(Number(value))">
-          <el-option v-for="size in [10, 12, 16, 24, 32, 36, 48, 56, 72]" :key="size" :label="`${size} pt`" :value="size" />
-        </el-select>
-        <el-button text title="加粗" @mousedown.prevent="command('bold')"><strong>B</strong></el-button>
-        <el-button text title="斜体" @mousedown.prevent="command('italic')"><em>I</em></el-button>
-        <el-button text title="下划线" @mousedown.prevent="command('underline')"><u>U</u></el-button>
-        <el-button text title="居左" @mousedown.prevent="command('justifyLeft')">≡</el-button>
-        <el-button text title="居中" @mousedown.prevent="command('justifyCenter')">≡</el-button>
-        <span class="tool-divider" />
-        <el-button text title="表格" @click="addTable"><el-icon><Grid /></el-icon></el-button>
-        <input ref="imageInput" hidden type="file" accept="image/*" @change="addImage(($event.target as HTMLInputElement).files?.[0])">
-        <el-button text title="插入本地图片" @click="imageInput?.click()"><el-icon><Picture /></el-icon></el-button>
-        <el-popover placement="bottom" :width="292" trigger="click">
-          <template #reference>
-            <el-button text title="设置附件图片尺寸"><el-icon><Picture /></el-icon><span class="image-size-label">图片 {{ imageWidthMm }}×{{ imageHeightMm }}mm</span></el-button>
-          </template>
-          <div class="image-settings">
-            <strong>附件图片尺寸</strong>
-            <p>多维表格中的图片都会按固定尺寸打印。</p>
-            <label><span>宽度</span><el-input-number v-model="imageWidthMm" :min="8" :max="80" :step="1" controls-position="right" /><em>mm</em></label>
-            <label><span>高度</span><el-input-number v-model="imageHeightMm" :min="8" :max="80" :step="1" controls-position="right" /><em>mm</em></label>
-            <label><span>显示方式</span><el-select v-model="imageFit"><el-option label="完整显示（不裁切）" value="contain" /><el-option label="铺满方框（会裁切）" value="cover" /></el-select></label>
-          </div>
-        </el-popover>
-        <el-button text title="分割线" @click="addDivider">—</el-button>
-        <div class="toolbar-spacer" />
-        <el-select v-model="printScope" size="small" style="width: 132px" @change="loadRows">
-          <el-option label="当前筛选视图" value="visible" /><el-option label="当前选中记录" value="selected" />
-        </el-select>
-        <el-select v-model="outputMode" size="small" style="width: 118px">
-          <el-option label="每条一页" value="one-per-record" />
-          <el-option label="合并成表" value="merge-records" />
-        </el-select>
-        <el-select v-model="orientation" size="small" style="width: 104px">
-          <el-option label="A4 纵向" value="portrait" /><el-option label="A4 横向" value="landscape" />
-        </el-select>
-        <el-button :loading="loading" @click="loadRows"><el-icon><Refresh /></el-icon></el-button>
-        <el-button @click="showPreview">预览</el-button>
-        <el-button :loading="pdfExporting" @click="exportPdf"><el-icon><Download /></el-icon>导出 PDF</el-button>
-        <el-button type="primary" @click="openSave">保存</el-button>
-      </div>
-
-      <div class="workspace">
-        <aside v-if="fieldPanelOpen" class="field-panel">
-          <div class="panel-heading">
-            <div><strong>字段</strong><small>{{ connectionReady ? `来自 ${tableName}` : '等待连接多维表格' }}</small></div>
-            <el-button text @click="fieldPanelOpen = false"><el-icon><ArrowLeft /></el-icon></el-button>
-          </div>
-          <el-input v-model="fieldSearch" class="field-search" placeholder="搜索字段（Alt+/）" clearable>
-            <template #prefix><el-icon><Search /></el-icon></template>
-          </el-input>
-          <div class="field-help">点击右侧 <b>＋</b> 插入字段；关联字段可展开一层。</div>
-          <div v-if="errorMessage" class="field-error">
-            <span>{{ errorMessage }}</span>
-            <el-button size="small" @click="init">重新读取</el-button>
-          </div>
-          <div class="special-fields">
-            <button @click="insertSpecial('index', '自增序号')"><span class="type-badge blue">#</span><strong>自增序号</strong><el-icon><Plus /></el-icon></button>
-            <button @click="insertSpecial('count', '单元格数值合计')"><span class="type-badge green">合计</span><strong>单元格数值合计</strong><el-icon><Plus /></el-icon></button>
-            <button @click="insertSpecial('date', '打印日期')"><span class="type-badge amber">日期</span><strong>打印日期</strong><el-icon><Plus /></el-icon></button>
-          </div>
-
-          <div v-if="!fieldList.length" class="empty-fields">
-            <el-icon><Tickets /></el-icon><p>打开飞书多维表格后，当前表的字段会自动出现在这里。</p>
-          </div>
-          <div class="field-list">
-            <div v-for="field in shownFields" :key="field.id" class="field-group">
-              <div class="field-row">
-                <button v-if="isLinkField(field)" class="expand-button" @click="toggleLink(field)">
-                  <el-icon><component :is="expandedLinks.has(field.id) ? Bottom : ArrowRight" /></el-icon>
-                </button>
-                <span v-else class="expand-spacer" />
-                <span class="field-name">{{ field.name }}</span>
-                <span v-if="isMultiLink(field)" class="multi-label">多条</span>
-                <button class="insert-button" @click="insertField(field)"><el-icon><Plus /></el-icon></button>
-              </div>
-              <div v-if="expandedLinks.has(field.id)" class="child-fields">
-                <div v-if="linkedGroups[field.id]?.loading" class="child-loading">正在读取关联表…</div>
-                <button v-for="child in linkedGroups[field.id]?.fields || []" :key="child.id" @click="insertField(child, field.id)">
-                  <span>{{ child.name }}</span><el-icon><Plus /></el-icon>
-                </button>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        <main class="canvas-area">
-          <div v-if="!fieldPanelOpen" class="reopen-panel"><el-button @click="fieldPanelOpen = true"><el-icon><Tickets /></el-icon>字段</el-button></div>
-          <div class="canvas-status">
-            <span><el-icon><EditPen /></el-icon>{{ templateName }}</span>
-            <span>{{ rows.length ? `已载入 ${rows.length} 条记录` : '设计模式' }}</span>
-          </div>
-          <div v-if="selectedCell" class="table-context-bar">
-            <strong>表格</strong>
-            <span class="resize-help">拖动蓝色右边调整列宽，拖动底边调整行高</span>
-            <el-button size="small" @click="addRow('before')">上方加行</el-button>
-            <el-button size="small" @click="addRow('after')">下方加行</el-button>
-            <el-button size="small" @click="addColumn('before')">左侧加列</el-button>
-            <el-button size="small" @click="addColumn('after')">右侧加列</el-button>
-            <span class="table-tool-divider" />
-            <el-button size="small" @click="mergeCellRight">向右合并</el-button>
-            <el-button size="small" @click="mergeCellDown">向下合并</el-button>
-            <el-button size="small" @click="splitCell">拆分单元格</el-button>
-            <span class="table-tool-divider" />
-            <el-button size="small" @click="deleteRow">删除行</el-button>
-            <el-button size="small" @click="deleteColumn">删除列</el-button>
-            <el-button size="small" type="danger" plain @click="deleteCurrentTable">删除表格</el-button>
-          </div>
-          <div v-if="selectedImage" class="image-context-bar">
-            <strong>图片大小</strong>
-            <el-button size="small" @click="setLocalImageWidth(localImageWidthMm - 10)">缩小</el-button>
-            <el-input-number v-model="localImageWidthMm" size="small" :min="10" :max="180" :step="5" controls-position="right" @change="value => setLocalImageWidth(Number(value))" />
-            <span>mm</span>
-            <el-button size="small" @click="setLocalImageWidth(localImageWidthMm + 10)">放大</el-button>
-            <el-button size="small" @click="resetLocalImageSize">原始比例</el-button>
-            <el-button size="small" type="danger" plain @click="deleteSelectedImage">删除图片</el-button>
-          </div>
-          <section class="print-sheet" :class="orientation">
-            <div
-              ref="editorRef"
-              class="document-editor"
-              contenteditable="true"
-              spellcheck="false"
-              @input="syncEditor"
-              @keyup="rememberSelection"
-              @mouseup="rememberSelection"
-              @mousemove="updateCellResizeCursor"
-              @mousedown="startCellResize"
-              @focus="rememberSelection"
-              @click="selectEditorElement"
-            />
-          </section>
-        </main>
-      </div>
-    </section>
-
-    <el-dialog v-model="autoTableDialog" class="auto-table-dialog" title="自动生成表格排版" width="620px">
-      <div class="auto-table-form">
-        <label class="auto-table-title">
-          <span>模板标题</span>
-          <el-input v-model="autoTableTitle" placeholder="例如：生产排期、采购清单" />
-        </label>
-        <label class="auto-table-title">
-          <span>排版方式</span>
-          <el-radio-group v-model="autoLayoutMode">
-            <el-radio-button value="auto">自动</el-radio-button>
-            <el-radio-button value="list">横向清单</el-radio-button>
-            <el-radio-button value="detail">分行详情</el-radio-button>
-          </el-radio-group>
-        </label>
-        <div class="auto-table-field-heading">
-          <div><strong>选择要打印的字段</strong><small>已选择 {{ autoTableFields.length }} 个</small></div>
-          <div>
-            <el-button text size="small" @click="autoTableFields = fieldList.map(field => field.id)">全选</el-button>
-            <el-button text size="small" @click="autoTableFields = []">清空</el-button>
-          </div>
-        </div>
-        <el-checkbox-group v-if="fieldList.length" v-model="autoTableFields" class="auto-table-fields">
-          <el-checkbox v-for="field in fieldList" :key="field.id" :value="field.id" :label="field.id">
-            {{ field.name }}
-          </el-checkbox>
-        </el-checkbox-group>
-        <div v-else class="auto-table-empty">
-          <strong>{{ loading ? '正在连接当前数据表…' : '尚未读取到字段' }}</strong>
-          <span>插件会自动重试；也可以点击下面按钮立即重新读取。</span>
-          <small v-if="errorMessage">{{ errorMessage }}</small>
-          <el-button type="primary" plain :loading="loading" @click="retryAutoTableFields">重新读取字段</el-button>
-        </div>
-        <el-checkbox v-model="autoIncludeIndex">自动添加序号列</el-checkbox>
-        <p class="auto-table-tip">“自动”会在字段超过 8 个时改为分行详情，每行两组字段并继续向下排版；生成后仍可调整表格。</p>
-      </div>
-      <template #footer>
-        <el-button @click="autoTableDialog = false">取消</el-button>
-        <el-button type="primary" :disabled="!autoTableFields.length" @click="generateAutoTable">生成表格</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="saveDialog" title="保存打印模板" width="420px">
-      <el-input v-model="saveName" placeholder="例如：生产排期、采购清单" @keyup.enter="confirmSave" />
-      <template #footer><el-button @click="saveDialog = false">取消</el-button><el-button type="primary" @click="confirmSave">保存</el-button></template>
-    </el-dialog>
-
-    <el-dialog v-model="previewMode" class="preview-dialog" title="打印预览" width="94%" top="3vh" destroy-on-close>
-      <div class="preview-actions">
-        <span>{{ rows.length }} 条记录 · {{ previewPages.length }} 页 · {{ orientation === 'portrait' ? 'A4 纵向' : 'A4 横向' }}</span>
-        <div>
-          <el-button :loading="pdfExporting" @click="exportPdf"><el-icon><Download /></el-icon>导出 PDF</el-button>
-          <el-button type="primary" @click="printPreview"><el-icon><Printer /></el-icon>打印</el-button>
-        </div>
-      </div>
-      <div v-loading="loading" class="preview-stage">
-        <section v-for="(html, index) in previewPages" :key="index" class="print-sheet preview-sheet" :class="orientation">
-          <div class="rendered-document" v-html="html" />
-        </section>
-      </div>
-    </el-dialog>
-  </div>
-</template>
+        

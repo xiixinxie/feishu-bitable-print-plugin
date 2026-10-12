@@ -256,7 +256,11 @@ const usePrint = () => {
     selectedTemplateId.value = template.id;
     templateName.value = template.name;
     orientation.value = template.orientation;
-    outputMode.value = template.outputMode || 'one-per-record';
+    // 详情模板的一张表描述的是一整条记录，不能按清单模式只复制其中一行。
+    // 旧模板可能保存过 merge-records，这里同时完成兼容迁移。
+    outputMode.value = /(?:class=["'][^"']*\bdetail-table\b|data-record-layout=["']detail["'])/.test(template.html)
+      ? 'one-per-record'
+      : (template.outputMode || 'one-per-record');
     imageWidthMm.value = template.imageWidthMm || 28;
     imageHeightMm.value = template.imageHeightMm || 22;
     imageFit.value = template.imageFit || 'contain';
@@ -426,6 +430,10 @@ const usePrint = () => {
 
   const emptyRow: PrintRow = { recordId: '', values: {}, linkedValues: {}, linkedRows: {} };
 
+  const isDetailTemplate = computed(() =>
+    /(?:class=["'][^"']*\bdetail-table\b|data-record-layout=["']detail["'])/.test(editorHtml.value),
+  );
+
   const renderMergedHtml = () => {
     const root = document.createElement('div');
     root.innerHTML = editorHtml.value;
@@ -448,7 +456,9 @@ const usePrint = () => {
   };
 
   const previewPages = computed(() => {
-    if (outputMode.value === 'merge-records') return [renderMergedHtml()];
+    // 详情式模板必须逐条完整渲染；否则“合并成表”会只重复详情表的首行，
+    // 导致序号/首字段出现多次，而图片、产品、数量等字段只显示第一条。
+    if (outputMode.value === 'merge-records' && !isDetailTemplate.value) return [renderMergedHtml()];
     return rows.value.length
       ? rows.value.map((row, index) => renderRecordHtml(row, index))
       : [renderRecordHtml(emptyRow, 0)];
@@ -457,7 +467,7 @@ const usePrint = () => {
   return {
     tableName, fieldList, linkedGroups, rows, templates, selectedTemplateId, templateName, editorHtml,
     orientation, outputMode, imageWidthMm, imageHeightMm, imageFit,
-    printScope, loading, connectionReady, errorMessage, previewPages,
+    printScope, loading, connectionReady, errorMessage, previewPages, isDetailTemplate,
     init, refreshFields, loadRows, loadLinkedFields, isLinkField, isMultiLink, createTemplate, openTemplate,
     saveTemplate, deleteTemplate, exportTemplates, importTemplates, notify,
   };
