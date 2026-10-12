@@ -38,10 +38,16 @@ const usePrint = () => {
 
   const getCurrentContext = async () => {
     if (!sdk.value) throw new Error('飞书 SDK 尚未加载');
-    const selection = await sdk.value.bitable.base.getSelection();
-    if (!selection.tableId || !selection.viewId) throw new Error('没有取得当前数据表或视图，请回到表格视图后重试');
-    const table = await sdk.value.bitable.base.getTableById(selection.tableId);
-    const view = await table.getViewById(selection.viewId);
+    let selection = await sdk.value.bitable.base.getSelection().catch(() => ({
+      baseId: null, tableId: null, viewId: null, fieldId: null, recordId: null,
+    }));
+    const table = selection.tableId
+      ? await sdk.value.bitable.base.getTableById(selection.tableId)
+      : await sdk.value.bitable.base.getActiveTable();
+    const view = selection.viewId
+      ? await table.getViewById(selection.viewId).catch(() => table.getActiveView())
+      : await table.getActiveView();
+    selection = { ...selection, tableId: selection.tableId || table.id, viewId: selection.viewId || view.id };
     return { selection, table, view };
   };
 
@@ -94,11 +100,17 @@ const usePrint = () => {
   };
 
   const loadRows = async () => {
-    if (!sdk.value || !connectionReady.value) return;
+    if (!sdk.value) return;
     loading.value = true;
     errorMessage.value = '';
     try {
       const { selection, table, view } = await getCurrentContext();
+      if (!fieldList.value.length || tableId.value !== table.id) {
+        tableId.value = table.id;
+        try { tableName.value = await table.getName(); } catch { tableName.value = '当前数据表'; }
+        fieldList.value = await view.getFieldMetaList() as FieldMetaLite[];
+      }
+      connectionReady.value = true;
       let recordIds: string[] = [];
       if (printScope.value === 'selected') {
         try { recordIds = await (view as typeof view & { getSelectedRecordIdList: () => Promise<string[]> }).getSelectedRecordIdList(); } catch { recordIds = []; }
@@ -130,6 +142,7 @@ const usePrint = () => {
         return { recordId, values, linkedValues };
       }));
     } catch (error) {
+      connectionReady.value = false;
       errorMessage.value = error instanceof Error ? error.message : '暂时无法读取当前多维表格';
       rows.value = [];
     } finally { loading.value = false; }
@@ -141,7 +154,7 @@ const usePrint = () => {
     try {
       sdk.value = await import('@lark-base-open/js-sdk');
       const { selection, table, view } = await getCurrentContext();
-      tableId.value = selection.tableId || '';
+      tableId.value = selection.tableId || table.id;
       try { tableName.value = await table.getName(); } catch { tableName.value = '当前数据表'; }
       fieldList.value = await view.getFieldMetaList() as FieldMetaLite[];
       connectionReady.value = true;
@@ -233,7 +246,10 @@ const usePrint = () => {
     return root.innerHTML;
   };
 
-  const previewPages = computed(() => rows.value.length ? rows.value.map((row, index) => renderHtml(row, index)) : [editorHtml.value]);
+  const emptyRow: PrintRow = { recordId: '', values: {}, linkedValues: {} };
+  const previewPages = computed(() => rows.value.length
+    ? rows.value.map((row, index) => renderHtml(row, index))
+    : [renderHtml(emptyRow, 0)]);
 
   return {
     tableName, fieldList, linkedGroups, rows, templates, selectedTemplateId, templateName, editorHtml,

@@ -231,8 +231,9 @@ const confirmSave = async () => {
 
 const showPreview = async () => {
   syncEditor();
-  await loadRows();
   previewMode.value = true;
+  await nextTick();
+  await loadRows();
 };
 
 const printNow = async () => {
@@ -433,7 +434,7 @@ const handleImport = async (file?: File) => {
         <span>{{ previewPages.length }} 页 · {{ orientation === 'portrait' ? 'A4 纵向' : 'A4 横向' }}</span>
         <el-button type="primary" @click="printPreview"><el-icon><Printer /></el-icon>打印</el-button>
       </div>
-      <div class="preview-stage">
+      <div v-loading="loading" class="preview-stage">
         <section v-for="(html, index) in previewPages" :key="index" class="print-sheet preview-sheet" :class="orientation">
           <div class="rendered-document" v-html="html" />
         </section>
