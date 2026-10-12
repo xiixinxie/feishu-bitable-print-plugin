@@ -48,6 +48,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .delete-template { position: absolute; right: 13px; bottom: 12px; color: #9099a8; }
 .create-card { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 8px; padding: 24px; color: #697386; background: rgba(255,255,255,.42); border: 2px dashed #c7d2e3; cursor: pointer; }
 .create-card:hover { color: #2f62df; background: #f8faff; border-color: #7f9fee; }
+.auto-create-card { color: #315fd2; background: #f4f7ff; border-style: solid; border-color: #b8c9f4; }
+.auto-create-card:hover { background: #edf3ff; border-color: #5f83e6; box-shadow: 0 8px 22px rgba(48,83,176,.12); }
 .create-card strong { color: #33405a; font-size: 18px; }
 .create-card > span:last-child { font-size: 13px; }
 .create-icon { width: 36px; height: 36px; display: grid; place-items: center; margin-bottom: 4px; color: #2f62df; background: #edf3ff; border-radius: 10px; font-size: 21px; }
@@ -131,6 +133,19 @@ button { -webkit-tap-highlight-color: transparent; }
 .image-settings label > span { color: #4e5969; font-size: 13px; }
 .image-settings label > em { color: #8f959e; font-size: 12px; font-style: normal; }
 .image-settings .el-select { grid-column: 2 / 4; }
+
+.auto-table-form { display: grid; gap: 16px; }
+.auto-table-title { display: grid; grid-template-columns: 82px 1fr; align-items: center; gap: 12px; }
+.auto-table-title > span { color: #4f596b; font-size: 13px; font-weight: 600; }
+.auto-table-field-heading { display: flex; align-items: center; justify-content: space-between; padding-top: 2px; }
+.auto-table-field-heading > div:first-child { display: flex; align-items: baseline; gap: 9px; }
+.auto-table-field-heading strong { font-size: 14px; }
+.auto-table-field-heading small { color: #8791a2; }
+.auto-table-fields { max-height: 290px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; overflow: auto; padding: 10px 12px; background: #f7f9fc; border: 1px solid #e0e5ed; border-radius: 10px; }
+.auto-table-fields .el-checkbox { width: 100%; min-width: 0; margin-right: 0; }
+.auto-table-fields .el-checkbox__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auto-table-empty { padding: 24px; color: #8791a2; background: #f7f9fc; border: 1px dashed #d5dce7; border-radius: 10px; text-align: center; font-size: 13px; }
+.auto-table-tip { margin: -7px 0 0; color: #7b8495; font-size: 12px; line-height: 1.6; }
 
 .preview-dialog .el-dialog__body { padding: 0; }
 .preview-actions { position: sticky; z-index: 4; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: #fff; border-bottom: 1px solid #e1e5ec; }

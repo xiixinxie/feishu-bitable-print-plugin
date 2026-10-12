@@ -21,6 +21,10 @@ const fieldPanelOpen = ref(true);
 const fieldSearch = ref('');
 const saveDialog = ref(false);
 const saveName = ref('');
+const autoTableDialog = ref(false);
+const autoTableTitle = ref('');
+const autoTableFields = ref<string[]>([]);
+const autoIncludeIndex = ref(true);
 const editorRef = ref<HTMLElement>();
 const importInput = ref<HTMLInputElement>();
 const imageInput = ref<HTMLInputElement>();
@@ -104,6 +108,13 @@ const beginTemplate = () => {
   });
 };
 
+const openAutoTable = () => {
+  autoTableTitle.value = `${tableName.value || '当前表'}清单`;
+  autoTableFields.value = fieldList.value.slice(0, 8).map(field => field.id);
+  autoIncludeIndex.value = true;
+  autoTableDialog.value = true;
+};
+
 const editTemplate = (id: string) => {
   if (openTemplate(id)) {
     page.value = 'editor';
@@ -153,9 +164,44 @@ const insertHtml = (html: string) => {
   syncEditor(true);
 };
 
+const escapeEditorHtml = (value: string) => value
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;');
+
 const tokenHtml = (label: string, kind = 'field', fieldId = '', parentId = '') => {
-  const parent = parentId ? ` data-parent-id="${parentId}"` : '';
-  return `<span class="field-token" contenteditable="false" data-token-kind="${kind}" data-field-id="${fieldId}"${parent}>${label}</span>&nbsp;`;
+  const parent = parentId ? ` data-parent-id="${escapeEditorHtml(parentId)}"` : '';
+  return `<span class="field-token" contenteditable="false" data-token-kind="${escapeEditorHtml(kind)}" data-field-id="${escapeEditorHtml(fieldId)}"${parent}>${escapeEditorHtml(label)}</span>&nbsp;`;
+};
+
+const generateAutoTable = () => {
+  const fields = fieldList.value.filter(field => autoTableFields.value.includes(field.id));
+  if (!fields.length) return;
+
+  createTemplate();
+  const title = autoTableTitle.value.trim() || `${tableName.value || '当前表'}清单`;
+  templateName.value = title;
+  outputMode.value = 'merge-records';
+  orientation.value = fields.length + (autoIncludeIndex.value ? 1 : 0) >= 6 ? 'landscape' : 'portrait';
+
+  const headers = [
+    ...(autoIncludeIndex.value ? ['序号'] : []),
+    ...fields.map(field => escapeEditorHtml(field.name)),
+  ].map(label => `<th>${label}</th>`).join('');
+  const cells = [
+    ...(autoIncludeIndex.value ? [tokenHtml('自增序号', 'index')] : []),
+    ...fields.map(field => tokenHtml(field.name, 'field', field.id)),
+  ].map(token => `<td>${token}</td>`).join('');
+
+  editorHtml.value = `<h2 style="text-align:center">${escapeEditorHtml(title)}</h2><table class="template-table"><thead><tr>${headers}</tr></thead><tbody><tr>${cells}</tr></tbody></table><p><br></p>`;
+  autoTableDialog.value = false;
+  page.value = 'editor';
+  nextTick(() => {
+    if (editorRef.value) editorRef.value.innerHTML = editorHtml.value;
+    resetHistory(editorHtml.value);
+    editorRef.value?.focus();
+  });
 };
 
 const insertSpecial = (kind: 'index' | 'count' | 'date', label: string) => insertHtml(tokenHtml(label, kind));
@@ -378,6 +424,11 @@ const handleImport = async (file?: File) => {
             <strong>创建新模板</strong>
             <span>从空白 A4 画布开始设计</span>
           </button>
+          <button class="create-card auto-create-card" @click="openAutoTable">
+            <span class="create-icon"><el-icon><Grid /></el-icon></span>
+            <strong>自动生成表格</strong>
+            <span>选择字段，自动创建多条记录打印清单</span>
+          </button>
         </div>
       </section>
     </section>
@@ -509,6 +560,34 @@ const handleImport = async (file?: File) => {
         </main>
       </div>
     </section>
+
+    <el-dialog v-model="autoTableDialog" class="auto-table-dialog" title="自动生成表格排版" width="620px">
+      <div class="auto-table-form">
+        <label class="auto-table-title">
+          <span>模板标题</span>
+          <el-input v-model="autoTableTitle" placeholder="例如：生产排期、采购清单" />
+        </label>
+        <div class="auto-table-field-heading">
+          <div><strong>选择要打印的字段</strong><small>已选择 {{ autoTableFields.length }} 个</small></div>
+          <div>
+            <el-button text size="small" @click="autoTableFields = fieldList.map(field => field.id)">全选</el-button>
+            <el-button text size="small" @click="autoTableFields = []">清空</el-button>
+          </div>
+        </div>
+        <el-checkbox-group v-if="fieldList.length" v-model="autoTableFields" class="auto-table-fields">
+          <el-checkbox v-for="field in fieldList" :key="field.id" :value="field.id" :label="field.id">
+            {{ field.name }}
+          </el-checkbox>
+        </el-checkbox-group>
+        <div v-else class="auto-table-empty">尚未读取到字段，请在飞书多维表格内打开插件后重试。</div>
+        <el-checkbox v-model="autoIncludeIndex">自动添加序号列</el-checkbox>
+        <p class="auto-table-tip">生成后仍可调整列宽、增删行列和插入图片。字段较多时会自动使用 A4 横向。</p>
+      </div>
+      <template #footer>
+        <el-button @click="autoTableDialog = false">取消</el-button>
+        <el-button type="primary" :disabled="!autoTableFields.length" @click="generateAutoTable">生成表格</el-button>
+      </template>
+    </el-dialog>
 
     <el-dialog v-model="saveDialog" title="保存打印模板" width="420px">
       <el-input v-model="saveName" placeholder="例如：生产排期、采购清单" @keyup.enter="confirmSave" />
