@@ -679,15 +679,19 @@ const printNow = async () => {
 const printPreview = () => openSystemPrint();
 
 const waitForImages = async (root: HTMLElement) => {
+  const timeout = (milliseconds: number) => new Promise<void>(resolve => setTimeout(resolve, milliseconds));
   await Promise.all(Array.from(root.querySelectorAll('img')).map(async image => {
     if (image.complete) {
-      try { await image.decode(); } catch { /* keep rendering other content */ }
+      try { await Promise.race([image.decode(), timeout(2000)]); } catch { /* keep rendering other content */ }
       return;
     }
-    await new Promise<void>(resolve => {
-      image.addEventListener('load', () => resolve(), { once: true });
-      image.addEventListener('error', () => resolve(), { once: true });
-    });
+    await Promise.race([
+      new Promise<void>(resolve => {
+        image.addEventListener('load', () => resolve(), { once: true });
+        image.addEventListener('error', () => resolve(), { once: true });
+      }),
+      timeout(5000),
+    ]);
   }));
 };
 
@@ -697,9 +701,8 @@ const exportPdf = async () => {
   let stage: HTMLDivElement | null = null;
   try {
     syncEditor(true);
-    // When the plugin is temporarily disconnected, export the data already loaded
-    // instead of leaving the button spinning forever.
-    if (connectionReady.value) await loadRows();
+    // Export the exact rows already visible in preview. Re-reading Feishu here can
+    // hang on a slow SDK call and can make the PDF differ from the preview.
     await nextTick();
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
     const landscape = orientation.value === 'landscape';
@@ -729,6 +732,7 @@ const exportPdf = async () => {
         scale: 2,
         useCORS: true,
         allowTaint: false,
+        imageTimeout: 5000,
         logging: false,
       });
       if (index > 0) pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
