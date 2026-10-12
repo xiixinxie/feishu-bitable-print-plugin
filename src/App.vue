@@ -33,6 +33,7 @@ const expandedLinks = ref(new Set<string>());
 const selectedCell = ref<HTMLTableCellElement | null>(null);
 const selectedImage = ref<HTMLImageElement | null>(null);
 const localImageWidthMm = ref(60);
+const fontSizePt = ref(12);
 const editorHistory = ref<string[]>([]);
 const historyIndex = ref(-1);
 const hasPendingHistory = ref(false);
@@ -258,6 +259,22 @@ const command = (name: string, value?: string) => {
     selection?.addRange(savedRange);
   }
   document.execCommand(name, false, value);
+  syncEditor(true);
+};
+
+const setFontSize = (value: number) => {
+  fontSizePt.value = value;
+  editorRef.value?.focus();
+  if (savedRange) {
+    const selection = window.getSelection();
+    selection?.removeAllRanges();
+    selection?.addRange(savedRange);
+  }
+  document.execCommand('fontSize', false, '7');
+  editorRef.value?.querySelectorAll<HTMLElement>('font[size="7"]').forEach(node => {
+    node.removeAttribute('size');
+    node.style.fontSize = `${value}pt`;
+  });
   syncEditor(true);
 };
 
@@ -623,8 +640,8 @@ const handleImport = async (file?: File) => {
         <el-select size="small" model-value="正文" style="width: 106px" @change="value => command('formatBlock', value === '正文' ? 'p' : value as string)">
           <el-option label="正文" value="正文" /><el-option label="标题 1" value="h1" /><el-option label="标题 2" value="h2" />
         </el-select>
-        <el-select size="small" model-value="12" style="width: 76px" @change="value => command('fontSize', String(value))">
-          <el-option label="10 pt" value="2" /><el-option label="12 pt" value="3" /><el-option label="16 pt" value="4" /><el-option label="24 pt" value="5" />
+        <el-select v-model="fontSizePt" size="small" style="width: 82px" @change="value => setFontSize(Number(value))">
+          <el-option v-for="size in [10, 12, 16, 24, 32, 36, 48, 56, 72]" :key="size" :label="`${size} pt`" :value="size" />
         </el-select>
         <el-button text title="加粗" @mousedown.prevent="command('bold')"><strong>B</strong></el-button>
         <el-button text title="斜体" @mousedown.prevent="command('italic')"><em>I</em></el-button>
