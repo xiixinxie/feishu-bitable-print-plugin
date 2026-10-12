@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue';
-import type { FieldMetaLite, LinkedFieldGroup, Orientation, PrintCell, PrintRow, PrintTemplate } from '../types';
+import type { FieldMetaLite, LinkedFieldGroup, Orientation, OutputMode, PrintCell, PrintRow, PrintTemplate } from '../types';
 
 const TEMPLATE_KEY = 'xii_print_templates_v1';
 const LEGACY_TEMPLATE_KEY = 'easy_print_templates_v4';
@@ -23,7 +23,8 @@ const usePrint = () => {
   const templateName = ref('未命名模板');
   const editorHtml = ref(defaultDocument());
   const orientation = ref<Orientation>('portrait');
-  const printScope = ref<'visible' | 'selected'>('visible');
+  const outputMode = ref<OutputMode>('one-per-record');
+  const printScope = ref<'visible' | 'selected'>('selected');
   const loading = ref(false);
   const connectionReady = ref(false);
   const errorMessage = ref('');
@@ -127,19 +128,21 @@ const usePrint = () => {
       rows.value = await Promise.all(recordIds.slice(0, 200).map(async recordId => {
         const values: Record<string, PrintCell> = {};
         const linkedValues: Record<string, Record<string, PrintCell>> = {};
+        const linkedRows: PrintRow['linkedRows'] = {};
         await Promise.all(fieldList.value.map(async field => { values[field.id] = await getCell(table, field, recordId); }));
         await Promise.all(Object.values(linkedGroups.value).map(async group => {
           const linkedIds = values[group.parent.id]?.recordIds || [];
           if (!linkedIds.length || !group.parent.property?.tableId) return;
           const linkedTable = await sdk.value!.bitable.base.getTableById(group.parent.property.tableId);
-          const childValues: Record<string, PrintCell> = {};
-          await Promise.all(group.fields.map(async child => {
-            const cells = await Promise.all(linkedIds.map(id => getCell(linkedTable, child, id)));
-            childValues[child.id] = { text: cells.map(cell => cell.text).filter(Boolean).join('、'), images: cells.flatMap(cell => cell.images || []) };
+          const detailRows = await Promise.all(linkedIds.map(async linkedId => {
+            const childValues: Record<string, PrintCell> = {};
+            await Promise.all(group.fields.map(async child => { childValues[child.id] = await getCell(linkedTable, child, linkedId); }));
+            return { recordId: linkedId, values: childValues };
           }));
-          linkedValues[group.parent.id] = childValues;
+          linkedRows[group.parent.id] = detailRows;
+          linkedValues[group.parent.id] = detailRows[0]?.values || {};
         }));
-        return { recordId, values, linkedValues };
+        return { recordId, values, linkedValues, linkedRows };
       }));
     } catch (error) {
       connectionReady.value = false;
@@ -171,6 +174,7 @@ const usePrint = () => {
     selectedTemplateId.value = `template_${Date.now()}`;
     templateName.value = '未命名模板';
     orientation.value = 'portrait';
+    outputMode.value = 'one-per-record';
     editorHtml.value = defaultDocument();
   };
 
@@ -180,6 +184,7 @@ const usePrint = () => {
     selectedTemplateId.value = template.id;
     templateName.value = template.name;
     orientation.value = template.orientation;
+    outputMode.value = template.outputMode || 'one-per-record';
     editorHtml.value = template.html;
     return true;
   };
@@ -190,7 +195,7 @@ const usePrint = () => {
     const template: PrintTemplate = {
       id: existingIndex >= 0 ? templates.value[existingIndex].id : (selectedTemplateId.value || `template_${Date.now()}`),
       name: cleanName, tableId: tableId.value, tableName: tableName.value, html: editorHtml.value,
-      orientation: orientation.value, updatedAt: Date.now(),
+      orientation: orientation.value, outputMode: outputMode.value, updatedAt: Date.now(),
     };
     templates.value = existingIndex >= 0 ? templates.value.map((item, index) => index === existingIndex ? template : item) : [...templates.value, template];
     selectedTemplateId.value = template.id;
@@ -225,35 +230,86 @@ const usePrint = () => {
     } catch (error) { notify(error instanceof Error ? error.message : '导入失败', 'error'); }
   };
 
-  const renderHtml = (row: PrintRow, index: number) => {
+  const replaceToken = (
+    token: HTMLElement,
+    row: PrintRow,
+    serial: number,
+    detailValues?: Record<string, PrintCell>,
+    detailParentId?: string,
+  ) => {
+    const kind = token.dataset.tokenKind;
+    if (kind === 'index') { token.replaceWith(String(serial)); return; }
+    if (kind === 'date') { token.replaceWith(new Date().toLocaleDateString('zh-CN')); return; }
+    if (kind === 'count') { token.replaceWith(String(rows.value.length)); return; }
+    const fieldId = token.dataset.fieldId || '';
+    const parentId = token.dataset.parentId;
+    const cell = parentId
+      ? (parentId === detailParentId ? detailValues?.[fieldId] : row.linkedValues[parentId]?.[fieldId])
+      : row.values[fieldId];
+    if (cell?.images?.length) {
+      const box = document.createElement('span');
+      box.className = 'rendered-images';
+      box.innerHTML = cell.images.map(url => `<img src="${escapeHtml(url)}" alt="" />`).join('');
+      token.replaceWith(box);
+    } else { token.replaceWith(cell?.text || ''); }
+  };
+
+  const expandLinkedDetailRows = (root: HTMLElement, row: PrintRow) => {
+    root.querySelectorAll<HTMLTableRowElement>('tr').forEach(templateRow => {
+      const detailToken = templateRow.querySelector<HTMLElement>('[data-parent-id]');
+      const parentId = detailToken?.dataset.parentId;
+      if (!parentId) return;
+      const detailRows = row.linkedRows[parentId] || [];
+      detailRows.forEach((detailRow, detailIndex) => {
+        const clone = templateRow.cloneNode(true) as HTMLTableRowElement;
+        clone.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => {
+          replaceToken(token, row, detailIndex + 1, detailRow.values, parentId);
+        });
+        templateRow.before(clone);
+      });
+      templateRow.remove();
+    });
+  };
+
+  const renderRecordHtml = (row: PrintRow, index: number) => {
     const root = document.createElement('div');
     root.innerHTML = editorHtml.value;
-    root.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => {
-      const kind = token.dataset.tokenKind;
-      if (kind === 'index') { token.replaceWith(String(index + 1)); return; }
-      if (kind === 'date') { token.replaceWith(new Date().toLocaleDateString('zh-CN')); return; }
-      if (kind === 'count') { token.replaceWith(String(rows.value.length)); return; }
-      const fieldId = token.dataset.fieldId || '';
-      const parentId = token.dataset.parentId;
-      const cell = parentId ? row.linkedValues[parentId]?.[fieldId] : row.values[fieldId];
-      if (cell?.images?.length) {
-        const box = document.createElement('span');
-        box.className = 'rendered-images';
-        box.innerHTML = cell.images.map(url => `<img src="${escapeHtml(url)}" alt="" />`).join('');
-        token.replaceWith(box);
-      } else { token.replaceWith(cell?.text || ''); }
-    });
+    expandLinkedDetailRows(root, row);
+    root.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => replaceToken(token, row, index + 1));
     return root.innerHTML;
   };
 
-  const emptyRow: PrintRow = { recordId: '', values: {}, linkedValues: {} };
-  const previewPages = computed(() => rows.value.length
-    ? rows.value.map((row, index) => renderHtml(row, index))
-    : [renderHtml(emptyRow, 0)]);
+  const emptyRow: PrintRow = { recordId: '', values: {}, linkedValues: {}, linkedRows: {} };
+
+  const renderMergedHtml = () => {
+    const root = document.createElement('div');
+    root.innerHTML = editorHtml.value;
+    const repeatingRow = Array.from(root.querySelectorAll<HTMLTableRowElement>('tr')).find(tableRow =>
+      Boolean(tableRow.querySelector('[data-token-kind="field"]:not([data-parent-id])')),
+    );
+    if (repeatingRow) {
+      rows.value.forEach((row, index) => {
+        const clone = repeatingRow.cloneNode(true) as HTMLTableRowElement;
+        clone.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => replaceToken(token, row, index + 1));
+        repeatingRow.before(clone);
+      });
+      repeatingRow.remove();
+    }
+    const firstRow = rows.value[0] || emptyRow;
+    root.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => replaceToken(token, firstRow, 1));
+    return root.innerHTML;
+  };
+
+  const previewPages = computed(() => {
+    if (outputMode.value === 'merge-records') return [renderMergedHtml()];
+    return rows.value.length
+      ? rows.value.map((row, index) => renderRecordHtml(row, index))
+      : [renderRecordHtml(emptyRow, 0)];
+  });
 
   return {
     tableName, fieldList, linkedGroups, rows, templates, selectedTemplateId, templateName, editorHtml,
-    orientation, printScope, loading, connectionReady, errorMessage, previewPages,
+    orientation, outputMode, printScope, loading, connectionReady, errorMessage, previewPages,
     init, loadRows, loadLinkedFields, isLinkField, isMultiLink, createTemplate, openTemplate,
     saveTemplate, deleteTemplate, exportTemplates, importTemplates, notify,
   };

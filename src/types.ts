@@ -1,4 +1,5 @@
 export type Orientation = 'portrait' | 'landscape';
+export type OutputMode = 'one-per-record' | 'merge-records';
 
 export type FieldMetaLite = {
   id: string;
@@ -20,6 +21,7 @@ export type PrintRow = {
   recordId: string;
   values: Record<string, PrintCell>;
   linkedValues: Record<string, Record<string, PrintCell>>;
+  linkedRows: Record<string, Array<{ recordId: string; values: Record<string, PrintCell> }>>;
 };
 
 export type PrintTemplate = {
@@ -29,6 +31,7 @@ export type PrintTemplate = {
   tableName: string;
   html: string;
   orientation: Orientation;
+  outputMode?: OutputMode;
   updatedAt: number;
 };
 

@@ -8,7 +8,7 @@ import usePrint from './hooks/usePrint';
 import type { FieldMetaLite } from './types';
 
 const {
-  tableName, fieldList, linkedGroups, rows, templates, templateName, editorHtml, orientation,
+  tableName, fieldList, linkedGroups, rows, templates, templateName, editorHtml, orientation, outputMode,
   printScope, loading, connectionReady, errorMessage, previewPages, init, loadRows, loadLinkedFields,
   isLinkField, isMultiLink, createTemplate, openTemplate, saveTemplate, deleteTemplate,
   exportTemplates, importTemplates,
@@ -337,6 +337,10 @@ const handleImport = async (file?: File) => {
         <el-select v-model="printScope" size="small" style="width: 132px" @change="loadRows">
           <el-option label="当前筛选视图" value="visible" /><el-option label="当前选中记录" value="selected" />
         </el-select>
+        <el-select v-model="outputMode" size="small" style="width: 118px">
+          <el-option label="每条一页" value="one-per-record" />
+          <el-option label="合并成表" value="merge-records" />
+        </el-select>
         <el-select v-model="orientation" size="small" style="width: 104px">
           <el-option label="A4 纵向" value="portrait" /><el-option label="A4 横向" value="landscape" />
         </el-select>
@@ -431,7 +435,7 @@ const handleImport = async (file?: File) => {
 
     <el-dialog v-model="previewMode" class="preview-dialog" title="打印预览" width="94%" top="3vh" destroy-on-close>
       <div class="preview-actions">
-        <span>{{ previewPages.length }} 页 · {{ orientation === 'portrait' ? 'A4 纵向' : 'A4 横向' }}</span>
+        <span>{{ rows.length }} 条记录 · {{ previewPages.length }} 页 · {{ orientation === 'portrait' ? 'A4 纵向' : 'A4 横向' }}</span>
         <el-button type="primary" @click="printPreview"><el-icon><Printer /></el-icon>打印</el-button>
       </div>
       <div v-loading="loading" class="preview-stage">
