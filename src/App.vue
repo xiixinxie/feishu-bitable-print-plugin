@@ -138,7 +138,7 @@ const handleImport = async (file?: File) => {
     <header class="brand-bar">
       <div class="brand-lockup">
         <span class="brand-mark"><el-icon><Menu /></el-icon></span>
-        <strong>易打印</strong>
+        <strong>xii打印</strong>
       </div>
       <div v-if="page === 'editor'" class="header-actions">
         <el-button text title="返回模板首页" @click="page = 'home'"><el-icon><Back /></el-icon></el-button>
@@ -152,7 +152,7 @@ const handleImport = async (file?: File) => {
     <section v-if="page === 'home'" class="home-page">
       <div class="home-hero">
         <p class="eyebrow">多维表格打印工具</p>
-        <h1>易打印 · 排版助手</h1>
+        <h1>xii打印 · 排版助手</h1>
         <p>字段来自当前多维表格，模板只负责排版，不会把业务字段写死。</p>
       </div>
 

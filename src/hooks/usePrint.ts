@@ -1,7 +1,8 @@
 import { computed, ref } from 'vue';
 import type { FieldMetaLite, LinkedFieldGroup, Orientation, PrintCell, PrintRow, PrintTemplate } from '../types';
 
-const TEMPLATE_KEY = 'easy_print_templates_v4';
+const TEMPLATE_KEY = 'xii_print_templates_v1';
+const LEGACY_TEMPLATE_KEY = 'easy_print_templates_v4';
 const FIELD_ATTACHMENT = 17;
 const FIELD_SINGLE_LINK = 18;
 const FIELD_DUPLEX_LINK = 21;
@@ -39,7 +40,10 @@ const usePrint = () => {
     let saved: unknown;
     try { saved = await sdk.value?.bitable.bridge.getData<PrintTemplate[]>(TEMPLATE_KEY); } catch { /* fallback */ }
     if (!Array.isArray(saved)) {
-      try { saved = JSON.parse(localStorage.getItem(TEMPLATE_KEY) || '[]'); } catch { saved = []; }
+      try { saved = await sdk.value?.bitable.bridge.getData<PrintTemplate[]>(LEGACY_TEMPLATE_KEY); } catch { /* migration fallback */ }
+    }
+    if (!Array.isArray(saved)) {
+      try { saved = JSON.parse(localStorage.getItem(TEMPLATE_KEY) || localStorage.getItem(LEGACY_TEMPLATE_KEY) || '[]'); } catch { saved = []; }
     }
     templates.value = Array.isArray(saved) ? saved.filter(item => item && typeof item === 'object') as PrintTemplate[] : [];
   };
@@ -190,7 +194,7 @@ const usePrint = () => {
     const blob = new Blob([JSON.stringify(templates.value, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `易打印模板-${new Date().toISOString().slice(0, 10)}.json`;
+    link.download = `xii打印模板-${new Date().toISOString().slice(0, 10)}.json`;
     link.click();
     URL.revokeObjectURL(link.href);
   };
