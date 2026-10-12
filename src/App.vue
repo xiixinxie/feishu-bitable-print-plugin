@@ -46,6 +46,7 @@ const getCleanEditorHtml = () => {
   if (!editorRef.value) return editorHtml.value;
   const clone = editorRef.value.cloneNode(true) as HTMLElement;
   clone.querySelectorAll('.selected-table-cell').forEach(cell => cell.classList.remove('selected-table-cell'));
+  clone.querySelectorAll('td[contenteditable], th[contenteditable]').forEach(cell => cell.removeAttribute('contenteditable'));
   return clone.innerHTML;
 };
 
@@ -245,8 +246,18 @@ const selectEditorElement = (event: MouseEvent) => {
   editorRef.value?.querySelectorAll('.selected-table-cell').forEach(cell => cell.classList.remove('selected-table-cell'));
   const cell = target.closest('td, th') as HTMLTableCellElement | null;
   selectedCell.value = cell;
-  cell?.classList.add('selected-table-cell');
-  rememberSelection();
+  if (!cell) {
+    rememberSelection();
+    return;
+  }
+  cell.classList.add('selected-table-cell');
+  cell.setAttribute('contenteditable', 'true');
+  const isEmpty = !cell.textContent?.trim() && !cell.querySelector('img, .field-token');
+  window.requestAnimationFrame(() => {
+    const selection = window.getSelection();
+    if (isEmpty || !selection?.rangeCount || !cell.contains(selection.anchorNode)) placeCaretInCell(cell);
+    else savedRange = selection.getRangeAt(0).cloneRange();
+  });
 };
 
 const makeCell = (tagName: 'td' | 'th') => {
@@ -257,6 +268,7 @@ const makeCell = (tagName: 'td' | 'th') => {
 
 const placeCaretInCell = (cell: HTMLTableCellElement | null) => {
   if (!cell || !editorRef.value) return;
+  cell.setAttribute('contenteditable', 'true');
   editorRef.value.focus();
   const range = document.createRange();
   range.selectNodeContents(cell);
