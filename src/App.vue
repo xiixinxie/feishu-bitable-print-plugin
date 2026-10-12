@@ -652,13 +652,31 @@ const showPreview = async () => {
   await loadRows();
 };
 
-const printNow = async () => {
-  await showPreview();
+const applyPrintPageStyle = () => {
+  let style = document.querySelector<HTMLStyleElement>('#xii-print-page-style');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'xii-print-page-style';
+    document.head.appendChild(style);
+  }
+  style.textContent = `@page { size: A4 ${orientation.value}; margin: 0; }`;
+};
+
+const openSystemPrint = async () => {
+  applyPrintPageStyle();
   await nextTick();
+  // Let the browser finish applying the dynamic @page direction before it
+  // takes the print snapshot.
+  await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
   window.print();
 };
 
-const printPreview = () => window.print();
+const printNow = async () => {
+  await showPreview();
+  await openSystemPrint();
+};
+
+const printPreview = () => openSystemPrint();
 
 const waitForImages = async (root: HTMLElement) => {
   await Promise.all(Array.from(root.querySelectorAll('img')).map(async image => {
