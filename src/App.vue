@@ -9,6 +9,7 @@ import type { FieldMetaLite } from './types';
 
 const {
   tableName, fieldList, linkedGroups, rows, templates, templateName, editorHtml, orientation, outputMode,
+  imageWidthMm, imageHeightMm, imageFit,
   printScope, loading, connectionReady, errorMessage, previewPages, init, loadRows, loadLinkedFields,
   isLinkField, isMultiLink, createTemplate, openTemplate, saveTemplate, deleteTemplate,
   exportTemplates, importTemplates,
@@ -332,6 +333,18 @@ const handleImport = async (file?: File) => {
         <el-button text title="表格" @click="addTable"><el-icon><Grid /></el-icon></el-button>
         <input ref="imageInput" hidden type="file" accept="image/*" @change="addImage(($event.target as HTMLInputElement).files?.[0])">
         <el-button text title="图片" @click="imageInput?.click()"><el-icon><Picture /></el-icon></el-button>
+        <el-popover placement="bottom" :width="292" trigger="click">
+          <template #reference>
+            <el-button text title="设置附件图片尺寸"><el-icon><Picture /></el-icon><span class="image-size-label">图片 {{ imageWidthMm }}×{{ imageHeightMm }}mm</span></el-button>
+          </template>
+          <div class="image-settings">
+            <strong>附件图片尺寸</strong>
+            <p>多维表格中的图片都会按固定尺寸打印。</p>
+            <label><span>宽度</span><el-input-number v-model="imageWidthMm" :min="8" :max="80" :step="1" controls-position="right" /><em>mm</em></label>
+            <label><span>高度</span><el-input-number v-model="imageHeightMm" :min="8" :max="80" :step="1" controls-position="right" /><em>mm</em></label>
+            <label><span>显示方式</span><el-select v-model="imageFit"><el-option label="完整显示（不裁切）" value="contain" /><el-option label="铺满方框（会裁切）" value="cover" /></el-select></label>
+          </div>
+        </el-popover>
         <el-button text title="分割线" @click="addDivider">—</el-button>
         <div class="toolbar-spacer" />
         <el-select v-model="printScope" size="small" style="width: 132px" @change="loadRows">

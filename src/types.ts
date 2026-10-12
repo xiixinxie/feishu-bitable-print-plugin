@@ -1,5 +1,6 @@
 export type Orientation = 'portrait' | 'landscape';
 export type OutputMode = 'one-per-record' | 'merge-records';
+export type ImageFit = 'contain' | 'cover';
 
 export type FieldMetaLite = {
   id: string;
@@ -32,6 +33,9 @@ export type PrintTemplate = {
   html: string;
   orientation: Orientation;
   outputMode?: OutputMode;
+  imageWidthMm?: number;
+  imageHeightMm?: number;
+  imageFit?: ImageFit;
   updatedAt: number;
 };
 

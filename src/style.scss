@@ -115,8 +115,22 @@ button { -webkit-tap-highlight-color: transparent; }
 .template-table th { background: #f0f2f5; text-align: center; }
 .template-table .selected-table-cell { position: relative; outline: 2px solid #3370ff; outline-offset: -2px; background-color: #edf3ff; }
 .template-image { max-width: 100%; height: auto; }
-.rendered-images { display: flex; flex-wrap: wrap; gap: 6px; }
-.rendered-images img { max-width: 180px; max-height: 130px; object-fit: contain; }
+.rendered-images { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2mm; }
+.rendered-images img {
+  display: block;
+  width: var(--print-image-width, 28mm);
+  height: var(--print-image-height, 22mm);
+  max-width: 100%;
+  object-fit: var(--print-image-fit, contain);
+}
+
+.image-size-label { margin-left: 5px; font-size: 12px; }
+.image-settings { display: grid; gap: 12px; }
+.image-settings > p { margin: -4px 0 2px; color: #7b8495; font-size: 12px; }
+.image-settings label { display: grid; grid-template-columns: 58px 1fr auto; align-items: center; gap: 8px; }
+.image-settings label > span { color: #4e5969; font-size: 13px; }
+.image-settings label > em { color: #8f959e; font-size: 12px; font-style: normal; }
+.image-settings .el-select { grid-column: 2 / 4; }
 
 .preview-dialog .el-dialog__body { padding: 0; }
 .preview-actions { position: sticky; z-index: 4; top: 0; display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; background: #fff; border-bottom: 1px solid #e1e5ec; }

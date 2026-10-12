@@ -1,5 +1,5 @@
 import { computed, ref } from 'vue';
-import type { FieldMetaLite, LinkedFieldGroup, Orientation, OutputMode, PrintCell, PrintRow, PrintTemplate } from '../types';
+import type { FieldMetaLite, ImageFit, LinkedFieldGroup, Orientation, OutputMode, PrintCell, PrintRow, PrintTemplate } from '../types';
 
 const TEMPLATE_KEY = 'xii_print_templates_v1';
 const LEGACY_TEMPLATE_KEY = 'easy_print_templates_v4';
@@ -24,6 +24,9 @@ const usePrint = () => {
   const editorHtml = ref(defaultDocument());
   const orientation = ref<Orientation>('portrait');
   const outputMode = ref<OutputMode>('one-per-record');
+  const imageWidthMm = ref(28);
+  const imageHeightMm = ref(22);
+  const imageFit = ref<ImageFit>('contain');
   const printScope = ref<'visible' | 'selected'>('selected');
   const loading = ref(false);
   const connectionReady = ref(false);
@@ -175,6 +178,9 @@ const usePrint = () => {
     templateName.value = '未命名模板';
     orientation.value = 'portrait';
     outputMode.value = 'one-per-record';
+    imageWidthMm.value = 28;
+    imageHeightMm.value = 22;
+    imageFit.value = 'contain';
     editorHtml.value = defaultDocument();
   };
 
@@ -185,6 +191,9 @@ const usePrint = () => {
     templateName.value = template.name;
     orientation.value = template.orientation;
     outputMode.value = template.outputMode || 'one-per-record';
+    imageWidthMm.value = template.imageWidthMm || 28;
+    imageHeightMm.value = template.imageHeightMm || 22;
+    imageFit.value = template.imageFit || 'contain';
     editorHtml.value = template.html;
     return true;
   };
@@ -195,7 +204,9 @@ const usePrint = () => {
     const template: PrintTemplate = {
       id: existingIndex >= 0 ? templates.value[existingIndex].id : (selectedTemplateId.value || `template_${Date.now()}`),
       name: cleanName, tableId: tableId.value, tableName: tableName.value, html: editorHtml.value,
-      orientation: orientation.value, outputMode: outputMode.value, updatedAt: Date.now(),
+      orientation: orientation.value, outputMode: outputMode.value,
+      imageWidthMm: imageWidthMm.value, imageHeightMm: imageHeightMm.value, imageFit: imageFit.value,
+      updatedAt: Date.now(),
     };
     templates.value = existingIndex >= 0 ? templates.value.map((item, index) => index === existingIndex ? template : item) : [...templates.value, template];
     selectedTemplateId.value = template.id;
@@ -249,6 +260,9 @@ const usePrint = () => {
     if (cell?.images?.length) {
       const box = document.createElement('span');
       box.className = 'rendered-images';
+      box.style.setProperty('--print-image-width', `${imageWidthMm.value}mm`);
+      box.style.setProperty('--print-image-height', `${imageHeightMm.value}mm`);
+      box.style.setProperty('--print-image-fit', imageFit.value);
       box.innerHTML = cell.images.map(url => `<img src="${escapeHtml(url)}" alt="" />`).join('');
       token.replaceWith(box);
     } else { token.replaceWith(cell?.text || ''); }
@@ -309,7 +323,8 @@ const usePrint = () => {
 
   return {
     tableName, fieldList, linkedGroups, rows, templates, selectedTemplateId, templateName, editorHtml,
-    orientation, outputMode, printScope, loading, connectionReady, errorMessage, previewPages,
+    orientation, outputMode, imageWidthMm, imageHeightMm, imageFit,
+    printScope, loading, connectionReady, errorMessage, previewPages,
     init, loadRows, loadLinkedFields, isLinkField, isMultiLink, createTemplate, openTemplate,
     saveTemplate, deleteTemplate, exportTemplates, importTemplates, notify,
   };
