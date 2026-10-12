@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import {
   ArrowLeft, ArrowRight, Back, Bottom, Check, Delete, Download, EditPen, Grid,
-  Menu, Picture, Plus, Printer, Refresh, Search, Setting, Tickets, Upload,
+  Menu, Picture, Plus, Printer, Refresh, Search, Tickets, Upload,
 } from '@element-plus/icons-vue';
 import usePrint from './hooks/usePrint';
 import type { FieldMetaLite } from './types';
@@ -26,7 +26,11 @@ const importInput = ref<HTMLInputElement>();
 const imageInput = ref<HTMLInputElement>();
 const expandedLinks = ref(new Set<string>());
 const selectedCell = ref<HTMLTableCellElement | null>(null);
+const editorHistory = ref<string[]>([]);
+const historyIndex = ref(-1);
+const hasPendingHistory = ref(false);
 let savedRange: Range | null = null;
+let historyTimer: number | undefined;
 
 onMounted(init);
 
@@ -34,14 +38,80 @@ const shownFields = computed(() => fieldList.value.filter(field => field.name.to
 
 const formatTime = (timestamp: number) => new Date(timestamp).toLocaleString('zh-CN', { hour12: false });
 
+const getCleanEditorHtml = () => {
+  if (!editorRef.value) return editorHtml.value;
+  const clone = editorRef.value.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll('.selected-table-cell').forEach(cell => cell.classList.remove('selected-table-cell'));
+  return clone.innerHTML;
+};
+
+const resetHistory = (html: string) => {
+  if (historyTimer) window.clearTimeout(historyTimer);
+  historyTimer = undefined;
+  editorHistory.value = [html];
+  historyIndex.value = 0;
+  hasPendingHistory.value = false;
+};
+
+const pushHistory = (html: string) => {
+  if (historyTimer) window.clearTimeout(historyTimer);
+  historyTimer = undefined;
+  const current = editorHistory.value[historyIndex.value];
+  hasPendingHistory.value = false;
+  if (html === current) return;
+  editorHistory.value = [...editorHistory.value.slice(0, historyIndex.value + 1), html].slice(-80);
+  historyIndex.value = editorHistory.value.length - 1;
+};
+
+const scheduleHistory = (html: string) => {
+  hasPendingHistory.value = html !== editorHistory.value[historyIndex.value];
+  if (historyTimer) window.clearTimeout(historyTimer);
+  historyTimer = window.setTimeout(() => {
+    pushHistory(getCleanEditorHtml() || html);
+    historyTimer = undefined;
+  }, 250);
+};
+
+const flushHistory = () => {
+  if (historyTimer) window.clearTimeout(historyTimer);
+  historyTimer = undefined;
+  pushHistory(getCleanEditorHtml());
+};
+
+const canUndo = computed(() => hasPendingHistory.value || historyIndex.value > 0);
+const canRedo = computed(() => !hasPendingHistory.value && historyIndex.value >= 0 && historyIndex.value < editorHistory.value.length - 1);
+
+const restoreHistory = async (direction: -1 | 1) => {
+  if (hasPendingHistory.value) flushHistory();
+  const target = historyIndex.value + direction;
+  if (target < 0 || target >= editorHistory.value.length) return;
+  historyIndex.value = target;
+  editorHtml.value = editorHistory.value[target];
+  selectedCell.value = null;
+  savedRange = null;
+  await nextTick();
+  if (editorRef.value) editorRef.value.innerHTML = editorHtml.value;
+  editorRef.value?.focus();
+};
+
 const beginTemplate = () => {
   createTemplate();
   page.value = 'editor';
-  nextTick(() => editorRef.value?.focus());
+  nextTick(() => {
+    if (editorRef.value) editorRef.value.innerHTML = editorHtml.value;
+    resetHistory(editorHtml.value);
+    editorRef.value?.focus();
+  });
 };
 
 const editTemplate = (id: string) => {
-  if (openTemplate(id)) page.value = 'editor';
+  if (openTemplate(id)) {
+    page.value = 'editor';
+    nextTick(() => {
+      if (editorRef.value) editorRef.value.innerHTML = editorHtml.value;
+      resetHistory(editorHtml.value);
+    });
+  }
 };
 
 const rememberSelection = () => {
@@ -49,10 +119,10 @@ const rememberSelection = () => {
   if (selection?.rangeCount && editorRef.value?.contains(selection.anchorNode)) savedRange = selection.getRangeAt(0).cloneRange();
 };
 
-const syncEditor = () => {
-  selectedCell.value?.classList.remove('selected-table-cell');
-  editorHtml.value = editorRef.value?.innerHTML || '';
-  selectedCell.value?.classList.add('selected-table-cell');
+const syncEditor = (immediate?: boolean | Event) => {
+  editorHtml.value = getCleanEditorHtml();
+  if (immediate === true) pushHistory(editorHtml.value);
+  else scheduleHistory(editorHtml.value);
   rememberSelection();
 };
 
@@ -80,7 +150,7 @@ const insertHtml = (html: string) => {
   } else {
     editor.insertAdjacentHTML('beforeend', html);
   }
-  syncEditor();
+  syncEditor(true);
 };
 
 const tokenHtml = (label: string, kind = 'field', fieldId = '', parentId = '') => {
@@ -109,7 +179,7 @@ const command = (name: string, value?: string) => {
     selection?.addRange(savedRange);
   }
   document.execCommand(name, false, value);
-  syncEditor();
+  syncEditor(true);
 };
 
 const addTable = async () => {
@@ -141,8 +211,8 @@ const makeCell = (tagName: 'td' | 'th') => {
 
 const finishTableEdit = async (table: HTMLTableElement, rowIndex: number, cellIndex: number) => {
   const tableIndex = Array.from(editorRef.value?.querySelectorAll('table') || []).indexOf(table);
-  selectedCell.value?.classList.remove('selected-table-cell');
-  editorHtml.value = editorRef.value?.innerHTML || '';
+  editorHtml.value = getCleanEditorHtml();
+  pushHistory(editorHtml.value);
   selectedCell.value = null;
   await nextTick();
   const liveTable = editorRef.value?.querySelectorAll('table')[tableIndex] as HTMLTableElement | undefined;
@@ -192,7 +262,7 @@ const deleteRow = () => {
   if (table.rows.length <= 1) table.remove();
   else row.remove();
   selectedCell.value = null;
-  syncEditor();
+  syncEditor(true);
 };
 
 const deleteColumn = () => {
@@ -203,13 +273,13 @@ const deleteColumn = () => {
   if ((table.rows[0]?.cells.length || 0) <= 1) table.remove();
   else Array.from(table.rows).forEach(row => row.cells[index]?.remove());
   selectedCell.value = null;
-  syncEditor();
+  syncEditor(true);
 };
 
 const deleteCurrentTable = () => {
   selectedCell.value?.closest('table')?.remove();
   selectedCell.value = null;
-  syncEditor();
+  syncEditor(true);
 };
 
 const addImage = (file?: File) => {
@@ -220,7 +290,8 @@ const addImage = (file?: File) => {
 };
 
 const openSave = () => {
-  syncEditor();
+  syncEditor(true);
+  flushHistory();
   saveName.value = templateName.value;
   saveDialog.value = true;
 };
@@ -231,7 +302,7 @@ const confirmSave = async () => {
 };
 
 const showPreview = async () => {
-  syncEditor();
+  syncEditor(true);
   previewMode.value = true;
   await nextTick();
   await loadRows();
@@ -263,7 +334,6 @@ const handleImport = async (file?: File) => {
         <el-button text title="预览" @click="showPreview"><el-icon><Check /></el-icon></el-button>
         <el-button text title="保存" @click="openSave"><el-icon><Tickets /></el-icon></el-button>
         <el-button text title="打印" @click="printNow"><el-icon><Printer /></el-icon></el-button>
-        <el-button text title="页面设置"><el-icon><Setting /></el-icon></el-button>
       </div>
     </header>
 
@@ -315,8 +385,8 @@ const handleImport = async (file?: File) => {
     <section v-else class="editor-page">
       <div class="editor-toolbar">
         <el-button class="primary-add" type="primary" @click="fieldPanelOpen = !fieldPanelOpen"><el-icon><Plus /></el-icon></el-button>
-        <el-button text @click="command('undo')">↶</el-button>
-        <el-button text @click="command('redo')">↷</el-button>
+        <el-button text title="撤回" :disabled="!canUndo" @click="restoreHistory(-1)">↶</el-button>
+        <el-button text title="重做" :disabled="!canRedo" @click="restoreHistory(1)">↷</el-button>
         <span class="tool-divider" />
         <el-select size="small" model-value="正文" style="width: 106px" @change="value => command('formatBlock', value === '正文' ? 'p' : value as string)">
           <el-option label="正文" value="正文" /><el-option label="标题 1" value="h1" /><el-option label="标题 2" value="h2" />
@@ -324,15 +394,15 @@ const handleImport = async (file?: File) => {
         <el-select size="small" model-value="12" style="width: 76px" @change="value => command('fontSize', String(value))">
           <el-option label="10 pt" value="2" /><el-option label="12 pt" value="3" /><el-option label="16 pt" value="4" /><el-option label="24 pt" value="5" />
         </el-select>
-        <el-button text title="加粗" @click="command('bold')"><strong>B</strong></el-button>
-        <el-button text title="斜体" @click="command('italic')"><em>I</em></el-button>
-        <el-button text title="下划线" @click="command('underline')"><u>U</u></el-button>
-        <el-button text title="居左" @click="command('justifyLeft')">≡</el-button>
-        <el-button text title="居中" @click="command('justifyCenter')">≡</el-button>
+        <el-button text title="加粗" @mousedown.prevent="command('bold')"><strong>B</strong></el-button>
+        <el-button text title="斜体" @mousedown.prevent="command('italic')"><em>I</em></el-button>
+        <el-button text title="下划线" @mousedown.prevent="command('underline')"><u>U</u></el-button>
+        <el-button text title="居左" @mousedown.prevent="command('justifyLeft')">≡</el-button>
+        <el-button text title="居中" @mousedown.prevent="command('justifyCenter')">≡</el-button>
         <span class="tool-divider" />
         <el-button text title="表格" @click="addTable"><el-icon><Grid /></el-icon></el-button>
         <input ref="imageInput" hidden type="file" accept="image/*" @change="addImage(($event.target as HTMLInputElement).files?.[0])">
-        <el-button text title="图片" @click="imageInput?.click()"><el-icon><Picture /></el-icon></el-button>
+        <el-button text title="插入本地图片" @click="imageInput?.click()"><el-icon><Picture /></el-icon></el-button>
         <el-popover placement="bottom" :width="292" trigger="click">
           <template #reference>
             <el-button text title="设置附件图片尺寸"><el-icon><Picture /></el-icon><span class="image-size-label">图片 {{ imageWidthMm }}×{{ imageHeightMm }}mm</span></el-button>
@@ -429,7 +499,6 @@ const handleImport = async (file?: File) => {
               class="document-editor"
               contenteditable="true"
               spellcheck="false"
-              :innerHTML="editorHtml"
               @input="syncEditor"
               @keyup="rememberSelection"
               @mouseup="rememberSelection"
