@@ -56,13 +56,29 @@ const syncEditor = () => {
 };
 
 const insertHtml = (html: string) => {
-  editorRef.value?.focus();
+  const editor = editorRef.value;
+  if (!editor) return;
+  editor.focus();
   const selection = window.getSelection();
-  if (savedRange && selection) {
+  const rangeIsInsideEditor = Boolean(savedRange && editor.contains(savedRange.commonAncestorContainer));
+  if (savedRange && selection && rangeIsInsideEditor) {
     selection.removeAllRanges();
     selection.addRange(savedRange);
+    const range = savedRange.cloneRange();
+    range.deleteContents();
+    const fragment = range.createContextualFragment(html);
+    const lastNode = fragment.lastChild;
+    range.insertNode(fragment);
+    if (lastNode) {
+      range.setStartAfter(lastNode);
+      range.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      savedRange = range.cloneRange();
+    }
+  } else {
+    editor.insertAdjacentHTML('beforeend', html);
   }
-  document.execCommand('insertHTML', false, html);
   syncEditor();
 };
 
@@ -95,9 +111,15 @@ const command = (name: string, value?: string) => {
   syncEditor();
 };
 
-const addTable = () => {
+const addTable = async () => {
   if (selectedCell.value) return;
   insertHtml('<table class="template-table"><thead><tr><th>标题</th><th>标题</th><th>标题</th></tr></thead><tbody><tr><td><br></td><td><br></td><td><br></td></tr></tbody></table><p><br></p>');
+  await nextTick();
+  const tables = editorRef.value?.querySelectorAll('table');
+  const table = tables?.[tables.length - 1] as HTMLTableElement | undefined;
+  const firstCell = table?.rows[0]?.cells[0] || null;
+  selectedCell.value = firstCell;
+  firstCell?.classList.add('selected-table-cell');
 };
 const addDivider = () => insertHtml('<hr><p><br></p>');
 
