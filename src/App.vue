@@ -300,6 +300,86 @@ const addColumn = async (where: 'before' | 'after') => {
   await finishTableEdit(table, selectedRowIndex, index);
 };
 
+const logicalColumnIndex = (cell: HTMLTableCellElement) => {
+  let index = 0;
+  let previous = cell.previousElementSibling as HTMLTableCellElement | null;
+  while (previous) {
+    index += previous.colSpan || 1;
+    previous = previous.previousElementSibling as HTMLTableCellElement | null;
+  }
+  return index;
+};
+
+const cellAtLogicalColumn = (row: HTMLTableRowElement, column: number) => {
+  let index = 0;
+  for (const cell of Array.from(row.cells)) {
+    const width = cell.colSpan || 1;
+    if (column >= index && column < index + width) return cell;
+    index += width;
+  }
+  return null;
+};
+
+const joinCellContents = (target: HTMLTableCellElement, source: HTMLTableCellElement) => {
+  const targetIsEmpty = !target.textContent?.trim() && !target.querySelector('img, .field-token');
+  const sourceIsEmpty = !source.textContent?.trim() && !source.querySelector('img, .field-token');
+  if (targetIsEmpty) target.innerHTML = source.innerHTML;
+  else if (!sourceIsEmpty) target.insertAdjacentHTML('beforeend', `<br>${source.innerHTML}`);
+};
+
+const mergeCellRight = async () => {
+  const cell = selectedCell.value;
+  const row = cell?.parentElement as HTMLTableRowElement | null;
+  const table = cell?.closest('table');
+  const next = cell?.nextElementSibling as HTMLTableCellElement | null;
+  if (!cell || !row || !table || !next || cell.rowSpan !== next.rowSpan) return;
+  joinCellContents(cell, next);
+  cell.colSpan += next.colSpan || 1;
+  next.remove();
+  await finishTableEdit(table, row.rowIndex, cell.cellIndex);
+};
+
+const mergeCellDown = async () => {
+  const cell = selectedCell.value;
+  const row = cell?.parentElement as HTMLTableRowElement | null;
+  const table = cell?.closest('table');
+  if (!cell || !row || !table) return;
+  const targetRow = table.rows[row.rowIndex + (cell.rowSpan || 1)];
+  if (!targetRow || targetRow.parentElement !== row.parentElement) return;
+  const target = cellAtLogicalColumn(targetRow, logicalColumnIndex(cell));
+  if (!target || target.colSpan !== cell.colSpan) return;
+  joinCellContents(cell, target);
+  cell.rowSpan += target.rowSpan || 1;
+  target.remove();
+  await finishTableEdit(table, row.rowIndex, cell.cellIndex);
+};
+
+const splitCell = async () => {
+  const cell = selectedCell.value;
+  const row = cell?.parentElement as HTMLTableRowElement | null;
+  const table = cell?.closest('table');
+  if (!cell || !row || !table || (cell.colSpan <= 1 && cell.rowSpan <= 1)) return;
+  const originalColumnIndex = cell.cellIndex;
+  const columnSpan = cell.colSpan || 1;
+  const rowSpan = cell.rowSpan || 1;
+  const tagName = cell.tagName === 'TH' ? 'th' : 'td';
+  cell.colSpan = 1;
+  cell.rowSpan = 1;
+
+  let insertionPoint = cell.nextSibling;
+  for (let column = 1; column < columnSpan; column += 1) {
+    const newCell = makeCell(tagName);
+    row.insertBefore(newCell, insertionPoint);
+  }
+  for (let offset = 1; offset < rowSpan; offset += 1) {
+    const targetRow = table.rows[row.rowIndex + offset];
+    if (!targetRow) continue;
+    const reference = targetRow.cells[Math.min(originalColumnIndex, targetRow.cells.length)] || null;
+    for (let column = 0; column < columnSpan; column += 1) targetRow.insertBefore(makeCell(tagName), reference);
+  }
+  await finishTableEdit(table, row.rowIndex, cell.cellIndex);
+};
+
 const deleteRow = () => {
   const cell = selectedCell.value;
   const row = cell?.parentElement as HTMLTableRowElement | null;
@@ -539,6 +619,10 @@ const handleImport = async (file?: File) => {
             <el-button size="small" @click="addRow('after')">下方加行</el-button>
             <el-button size="small" @click="addColumn('before')">左侧加列</el-button>
             <el-button size="small" @click="addColumn('after')">右侧加列</el-button>
+            <span class="table-tool-divider" />
+            <el-button size="small" @click="mergeCellRight">向右合并</el-button>
+            <el-button size="small" @click="mergeCellDown">向下合并</el-button>
+            <el-button size="small" @click="splitCell">拆分单元格</el-button>
             <span class="table-tool-divider" />
             <el-button size="small" @click="deleteRow">删除行</el-button>
             <el-button size="small" @click="deleteColumn">删除列</el-button>

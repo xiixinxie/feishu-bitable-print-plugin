@@ -100,7 +100,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .canvas-area { position: relative; flex: 1; overflow: auto; padding: 52px 48px 100px; background: #dfe3ea; }
 .canvas-status { position: absolute; top: 14px; left: 22px; right: 22px; display: flex; justify-content: space-between; color: #687386; font-size: 12px; }
 .canvas-status span { display: flex; align-items: center; gap: 6px; }
-.table-context-bar { position: sticky; z-index: 5; top: 4px; width: max-content; max-width: 100%; display: flex; align-items: center; gap: 4px; margin: -38px auto 12px; padding: 7px 9px; background: #fff; border: 1px solid #d7dde8; border-radius: 10px; box-shadow: 0 8px 24px rgba(30,46,78,.16); }
+.table-context-bar { position: sticky; z-index: 5; top: 4px; width: max-content; max-width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; margin: -38px auto 12px; padding: 7px 9px; background: #fff; border: 1px solid #d7dde8; border-radius: 10px; box-shadow: 0 8px 24px rgba(30,46,78,.16); }
 .table-context-bar strong { margin: 0 5px; color: #526074; font-size: 12px; }
 .table-tool-divider { width: 1px; height: 22px; margin: 0 4px; background: #e1e5ec; }
 .reopen-panel { position: absolute; z-index: 3; top: 12px; left: 12px; }
