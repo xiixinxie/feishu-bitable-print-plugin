@@ -255,6 +255,18 @@ const makeCell = (tagName: 'td' | 'th') => {
   return cell;
 };
 
+const placeCaretInCell = (cell: HTMLTableCellElement | null) => {
+  if (!cell || !editorRef.value) return;
+  editorRef.value.focus();
+  const range = document.createRange();
+  range.selectNodeContents(cell);
+  range.collapse(false);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  savedRange = range.cloneRange();
+};
+
 const finishTableEdit = async (table: HTMLTableElement, rowIndex: number, cellIndex: number) => {
   const tableIndex = Array.from(editorRef.value?.querySelectorAll('table') || []).indexOf(table);
   editorHtml.value = getCleanEditorHtml();
@@ -264,6 +276,7 @@ const finishTableEdit = async (table: HTMLTableElement, rowIndex: number, cellIn
   const liveTable = editorRef.value?.querySelectorAll('table')[tableIndex] as HTMLTableElement | undefined;
   selectedCell.value = liveTable?.rows[rowIndex]?.cells[cellIndex] || null;
   selectedCell.value?.classList.add('selected-table-cell');
+  placeCaretInCell(selectedCell.value);
 };
 
 const addRow = async (where: 'before' | 'after') => {
