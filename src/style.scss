@@ -149,7 +149,20 @@ button { -webkit-tap-highlight-color: transparent; }
 .auto-table-fields { max-height: 290px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; overflow: auto; padding: 10px 12px; background: #f7f9fc; border: 1px solid #e0e5ed; border-radius: 10px; }
 .auto-table-fields .el-checkbox { width: 100%; min-width: 0; margin-right: 0; }
 .auto-table-fields .el-checkbox__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.auto-table-empty { padding: 24px; color: #8791a2; background: #f7f9fc; border: 1px dashed #d5dce7; border-radius: 10px; text-align: center; font-size: 13px; }
+.auto-table-empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 22px;
+  color: #8791a2;
+  background: #f7f9fc;
+  border: 1px dashed #d5dce7;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 13px;
+}
+.auto-table-empty strong { color: #344054; font-size: 14px; }
+.auto-table-empty small { max-width: 460px; color: #c45656; line-height: 1.5; }
 .auto-table-tip { margin: -7px 0 0; color: #7b8495; font-size: 12px; line-height: 1.6; }
 
 .preview-dialog .el-dialog__body { padding: 0; }

@@ -10,7 +10,7 @@ import type { FieldMetaLite } from './types';
 const {
   tableName, fieldList, linkedGroups, rows, templates, templateName, editorHtml, orientation, outputMode,
   imageWidthMm, imageHeightMm, imageFit,
-  printScope, loading, connectionReady, errorMessage, previewPages, init, loadRows, loadLinkedFields,
+  printScope, loading, connectionReady, errorMessage, previewPages, init, refreshFields, loadRows, loadLinkedFields,
   isLinkField, isMultiLink, createTemplate, openTemplate, saveTemplate, deleteTemplate,
   exportTemplates, importTemplates,
 } = usePrint();
@@ -113,11 +113,20 @@ const beginTemplate = () => {
   });
 };
 
-const openAutoTable = () => {
+const setAutoTableDefaults = () => {
   autoTableTitle.value = `${tableName.value || '当前表'}清单`;
   autoTableFields.value = fieldList.value.slice(0, 8).map(field => field.id);
   autoIncludeIndex.value = true;
+};
+
+const openAutoTable = async () => {
   autoTableDialog.value = true;
+  setAutoTableDefaults();
+  if (!fieldList.value.length && await refreshFields()) setAutoTableDefaults();
+};
+
+const retryAutoTableFields = async () => {
+  if (await refreshFields()) setAutoTableDefaults();
 };
 
 const editTemplate = (id: string) => {
@@ -745,7 +754,12 @@ const handleImport = async (file?: File) => {
             {{ field.name }}
           </el-checkbox>
         </el-checkbox-group>
-        <div v-else class="auto-table-empty">尚未读取到字段，请在飞书多维表格内打开插件后重试。</div>
+        <div v-else class="auto-table-empty">
+          <strong>{{ loading ? '正在连接当前数据表…' : '尚未读取到字段' }}</strong>
+          <span>插件会自动重试；也可以点击下面按钮立即重新读取。</span>
+          <small v-if="errorMessage">{{ errorMessage }}</small>
+          <el-button type="primary" plain :loading="loading" @click="retryAutoTableFields">重新读取字段</el-button>
+        </div>
         <el-checkbox v-model="autoIncludeIndex">自动添加序号列</el-checkbox>
         <p class="auto-table-tip">生成后仍可调整列宽、增删行列和插入图片。字段较多时会自动使用 A4 横向。</p>
       </div>

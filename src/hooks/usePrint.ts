@@ -14,6 +14,7 @@ const defaultDocument = () => '<h2 style="text-align:center">在这里开始设�
 const usePrint = () => {
   const sdk = ref<SdkModule | null>(null);
   const tableId = ref('');
+  const viewId = ref('');
   const tableName = ref('当前数据表');
   const fieldList = ref<FieldMetaLite[]>([]);
   const linkedGroups = ref<Record<string, LinkedFieldGroup>>({});
@@ -31,6 +32,11 @@ const usePrint = () => {
   const loading = ref(false);
   const connectionReady = ref(false);
   const errorMessage = ref('');
+  let selectionRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+  let stopSelectionListener: (() => void) | undefined;
+  let refreshPromise: Promise<boolean> | null = null;
+
+  const wait = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
 
   const isLinkField = (field: FieldMetaLite) => field.type === FIELD_SINGLE_LINK || field.type === FIELD_DUPLEX_LINK;
   const isMultiLink = (field: FieldMetaLite) => isLinkField(field) && Boolean(field.property?.multiple);
@@ -53,6 +59,77 @@ const usePrint = () => {
       : await table.getActiveView();
     selection = { ...selection, tableId: selection.tableId || table.id, viewId: selection.viewId || view.id };
     return { selection, table, view };
+  };
+
+  const getCurrentFields = async (table: any, view: any) => {
+    let viewError: unknown;
+    try {
+      const fields = await view.getFieldMetaList() as FieldMetaLite[];
+      if (fields.length) return fields;
+    } catch (error) { viewError = error; }
+    try {
+      const fields = await table.getFieldMetaList() as FieldMetaLite[];
+      if (fields.length) return fields;
+    } catch (error) {
+      throw viewError || error;
+    }
+    return [];
+  };
+
+  const connectCurrentContext = async () => {
+    const { selection, table, view } = await getCurrentContext();
+    const fields = await getCurrentFields(table, view);
+    if (!fields.length) throw new Error('当前数据表没有可读取的字段，请确认已授予插件读取权限');
+    tableId.value = selection.tableId || table.id;
+    viewId.value = selection.viewId || view.id;
+    try { tableName.value = await table.getName(); } catch { tableName.value = '当前数据表'; }
+    fieldList.value = fields;
+    connectionReady.value = true;
+    errorMessage.value = '';
+    return { selection, table, view };
+  };
+
+  const refreshFields = async () => {
+    if (refreshPromise) return refreshPromise;
+    refreshPromise = (async () => {
+      loading.value = true;
+      errorMessage.value = '';
+      let lastError: unknown;
+      try {
+        if (!sdk.value) sdk.value = await import('@lark-base-open/js-sdk');
+        for (const delay of [0, 350, 900, 1800]) {
+          if (delay) await wait(delay);
+          try {
+            await connectCurrentContext();
+            return true;
+          } catch (error) { lastError = error; }
+        }
+        throw lastError || new Error('未连接到飞书多维表格');
+      } catch (error) {
+        connectionReady.value = false;
+        errorMessage.value = error instanceof Error ? error.message : '未连接到飞书多维表格';
+        return false;
+      } finally {
+        loading.value = false;
+        refreshPromise = null;
+      }
+    })();
+    return refreshPromise;
+  };
+
+  const watchContextChanges = () => {
+    if (!sdk.value || stopSelectionListener) return;
+    stopSelectionListener = sdk.value.bitable.base.onSelectionChange(() => {
+      if (selectionRefreshTimer) clearTimeout(selectionRefreshTimer);
+      selectionRefreshTimer = setTimeout(async () => {
+        try {
+          const { selection, table, view } = await getCurrentContext();
+          const nextTableId = selection.tableId || table.id;
+          const nextViewId = selection.viewId || view.id;
+          if (nextTableId !== tableId.value || nextViewId !== viewId.value) await refreshFields();
+        } catch { /* the manual retry remains available */ }
+      }, 180);
+    });
   };
 
   const readSavedTemplates = async () => {
@@ -109,10 +186,11 @@ const usePrint = () => {
     errorMessage.value = '';
     try {
       const { selection, table, view } = await getCurrentContext();
-      if (!fieldList.value.length || tableId.value !== table.id) {
+      if (!fieldList.value.length || tableId.value !== table.id || viewId.value !== view.id) {
         tableId.value = table.id;
+        viewId.value = view.id;
         try { tableName.value = await table.getName(); } catch { tableName.value = '当前数据表'; }
-        fieldList.value = await view.getFieldMetaList() as FieldMetaLite[];
+        fieldList.value = await getCurrentFields(table, view);
       }
       connectionReady.value = true;
       let recordIds: string[] = [];
@@ -155,22 +233,10 @@ const usePrint = () => {
   };
 
   const init = async () => {
-    loading.value = true;
-    errorMessage.value = '';
-    try {
-      sdk.value = await import('@lark-base-open/js-sdk');
-      const { selection, table, view } = await getCurrentContext();
-      tableId.value = selection.tableId || table.id;
-      try { tableName.value = await table.getName(); } catch { tableName.value = '当前数据表'; }
-      fieldList.value = await view.getFieldMetaList() as FieldMetaLite[];
-      connectionReady.value = true;
-      await readSavedTemplates();
-      await loadRows();
-    } catch (error) {
-      connectionReady.value = false;
-      errorMessage.value = error instanceof Error ? error.message : '未连接到飞书多维表格';
-      await readSavedTemplates();
-    } finally { loading.value = false; }
+    await readSavedTemplates();
+    const connected = await refreshFields();
+    watchContextChanges();
+    if (connected) await loadRows();
   };
 
   const createTemplate = () => {
@@ -392,7 +458,7 @@ const usePrint = () => {
     tableName, fieldList, linkedGroups, rows, templates, selectedTemplateId, templateName, editorHtml,
     orientation, outputMode, imageWidthMm, imageHeightMm, imageFit,
     printScope, loading, connectionReady, errorMessage, previewPages,
-    init, loadRows, loadLinkedFields, isLinkField, isMultiLink, createTemplate, openTemplate,
+    init, refreshFields, loadRows, loadLinkedFields, isLinkField, isMultiLink, createTemplate, openTemplate,
     saveTemplate, deleteTemplate, exportTemplates, importTemplates, notify,
   };
 };
