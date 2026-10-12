@@ -652,7 +652,7 @@ const handleImport = async (file?: File) => {
           </div>
           <div class="special-fields">
             <button @click="insertSpecial('index', '自增序号')"><span class="type-badge blue">#</span><strong>自增序号</strong><el-icon><Plus /></el-icon></button>
-            <button @click="insertSpecial('count', '计算总数')"><span class="type-badge green">总数</span><strong>计算总数</strong><el-icon><Plus /></el-icon></button>
+            <button @click="insertSpecial('count', '单元格数值合计')"><span class="type-badge green">合计</span><strong>单元格数值合计</strong><el-icon><Plus /></el-icon></button>
             <button @click="insertSpecial('date', '打印日期')"><span class="type-badge amber">日期</span><strong>打印日期</strong><el-icon><Plus /></el-icon></button>
           </div>
 

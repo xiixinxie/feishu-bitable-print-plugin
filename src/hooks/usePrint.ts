@@ -251,7 +251,7 @@ const usePrint = () => {
     const kind = token.dataset.tokenKind;
     if (kind === 'index') { token.replaceWith(String(serial)); return; }
     if (kind === 'date') { token.replaceWith(new Date().toLocaleDateString('zh-CN')); return; }
-    if (kind === 'count') { token.replaceWith(String(rows.value.length)); return; }
+    if (kind === 'count') return;
     const fieldId = token.dataset.fieldId || '';
     const parentId = token.dataset.parentId;
     const cell = parentId
@@ -285,11 +285,76 @@ const usePrint = () => {
     });
   };
 
+  const logicalColumnIndex = (cell: HTMLTableCellElement) => {
+    let index = 0;
+    let previous = cell.previousElementSibling as HTMLTableCellElement | null;
+    while (previous) {
+      index += previous.colSpan || 1;
+      previous = previous.previousElementSibling as HTMLTableCellElement | null;
+    }
+    return index;
+  };
+
+  const cellAtLogicalColumn = (row: HTMLTableRowElement, column: number) => {
+    let index = 0;
+    for (const cell of Array.from(row.cells)) {
+      const width = cell.colSpan || 1;
+      if (column >= index && column < index + width) return cell;
+      index += width;
+    }
+    return null;
+  };
+
+  const parseNumericCell = (cell: HTMLTableCellElement) => {
+    const source = (cell.textContent || '').replace(/[，,\s]/g, '');
+    const match = source.match(/-?(?:\d+(?:\.\d+)?|\.\d+)/);
+    if (!match) return null;
+    const value = Number(match[0]);
+    if (!Number.isFinite(value)) return null;
+    const decimals = match[0].split('.')[1]?.length || 0;
+    return { value, decimals, percent: source.includes('%') };
+  };
+
+  const replaceColumnSumTokens = (root: HTMLElement) => {
+    root.querySelectorAll<HTMLElement>('[data-token-kind="count"]').forEach(token => {
+      const totalCell = token.closest('td, th') as HTMLTableCellElement | null;
+      const table = totalCell?.closest('table');
+      const totalRow = totalCell?.parentElement as HTMLTableRowElement | null;
+      if (!totalCell || !table || !totalRow) {
+        token.replaceWith('0');
+        return;
+      }
+      const column = logicalColumnIndex(totalCell);
+      const markedRows = Array.from(table.querySelectorAll<HTMLTableRowElement>('tr[data-print-record-row="true"]'));
+      const sourceRows = markedRows.length
+        ? markedRows
+        : Array.from(table.rows).filter(row => row !== totalRow && !row.querySelector('[data-token-kind="count"]'));
+      const values = sourceRows
+        .map(row => cellAtLogicalColumn(row, column))
+        .filter((cell): cell is HTMLTableCellElement => Boolean(cell))
+        .map(parseNumericCell)
+        .filter((value): value is NonNullable<ReturnType<typeof parseNumericCell>> => Boolean(value));
+      if (!values.length) {
+        token.replaceWith('0');
+        return;
+      }
+      const decimals = Math.min(6, Math.max(...values.map(item => item.decimals)));
+      const total = values.reduce((sum, item) => sum + item.value, 0);
+      const formatted = total.toLocaleString('zh-CN', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+      token.replaceWith(`${formatted}${values.every(item => item.percent) ? '%' : ''}`);
+    });
+    root.querySelectorAll('[data-print-record-row]').forEach(row => row.removeAttribute('data-print-record-row'));
+  };
+
   const renderRecordHtml = (row: PrintRow, index: number) => {
     const root = document.createElement('div');
     root.innerHTML = editorHtml.value;
     expandLinkedDetailRows(root, row);
     root.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => replaceToken(token, row, index + 1));
+    replaceColumnSumTokens(root);
     return root.innerHTML;
   };
 
@@ -304,6 +369,7 @@ const usePrint = () => {
     if (repeatingRow) {
       rows.value.forEach((row, index) => {
         const clone = repeatingRow.cloneNode(true) as HTMLTableRowElement;
+        clone.dataset.printRecordRow = 'true';
         clone.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => replaceToken(token, row, index + 1));
         repeatingRow.before(clone);
       });
@@ -311,6 +377,7 @@ const usePrint = () => {
     }
     const firstRow = rows.value[0] || emptyRow;
     root.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => replaceToken(token, firstRow, 1));
+    replaceColumnSumTokens(root);
     return root.innerHTML;
   };
 
