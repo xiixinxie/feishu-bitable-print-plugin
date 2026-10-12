@@ -256,11 +256,7 @@ const usePrint = () => {
     selectedTemplateId.value = template.id;
     templateName.value = template.name;
     orientation.value = template.orientation;
-    // 详情模板的一张表描述的是一整条记录，不能按清单模式只复制其中一行。
-    // 旧模板可能保存过 merge-records，这里同时完成兼容迁移。
-    outputMode.value = /(?:class=["'][^"']*\bdetail-table\b|data-record-layout=["']detail["'])/.test(template.html)
-      ? 'one-per-record'
-      : (template.outputMode || 'one-per-record');
+    outputMode.value = template.outputMode || 'one-per-record';
     imageWidthMm.value = template.imageWidthMm || 28;
     imageHeightMm.value = template.imageHeightMm || 22;
     imageFit.value = template.imageFit || 'contain';
@@ -455,10 +451,30 @@ const usePrint = () => {
     return root.innerHTML;
   };
 
+  const renderMergedDetailHtml = () => {
+    const sourceRows = rows.value.length ? rows.value : [emptyRow];
+    const root = document.createElement('div');
+    root.innerHTML = renderRecordHtml(sourceRows[0], 0);
+    let anchor = root.querySelector<HTMLTableElement>('table[data-record-layout="detail"], table.detail-table');
+    if (!anchor) return root.innerHTML;
+    anchor.classList.add('merged-detail-record');
+
+    sourceRows.slice(1).forEach((row, offset) => {
+      const rendered = document.createElement('div');
+      rendered.innerHTML = renderRecordHtml(row, offset + 1);
+      const table = rendered.querySelector<HTMLTableElement>('table[data-record-layout="detail"], table.detail-table');
+      if (!table) return;
+      table.classList.add('merged-detail-record');
+      anchor!.after(table);
+      anchor = table;
+    });
+    return root.innerHTML;
+  };
+
   const previewPages = computed(() => {
-    // 详情式模板必须逐条完整渲染；否则“合并成表”会只重复详情表的首行，
-    // 导致序号/首字段出现多次，而图片、产品、数量等字段只显示第一条。
-    if (outputMode.value === 'merge-records' && !isDetailTemplate.value) return [renderMergedHtml()];
+    if (outputMode.value === 'merge-records') {
+      return [isDetailTemplate.value ? renderMergedDetailHtml() : renderMergedHtml()];
+    }
     return rows.value.length
       ? rows.value.map((row, index) => renderRecordHtml(row, index))
       : [renderRecordHtml(emptyRow, 0)];

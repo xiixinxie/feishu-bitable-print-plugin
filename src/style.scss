@@ -122,6 +122,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .template-table th { background: #f0f2f5; text-align: center; }
 .detail-table .detail-label { width: 18%; vertical-align: middle; text-align: left; }
 .detail-table .detail-value { width: 32%; min-height: 42px; vertical-align: middle; }
+.detail-table.merged-detail-record + .detail-table.merged-detail-record { margin-top: 10mm; }
 .template-table .selected-table-cell { position: relative; outline: 2px solid #3370ff; outline-offset: -2px; background-color: #edf3ff; }
 .template-table .selected-table-cell::before {
   content: '';
@@ -217,4 +218,5 @@ button { -webkit-tap-highlight-color: transparent; }
   .field-token { color: inherit; background: transparent; border: 0; padding: 0; }
   .template-table thead { display: table-header-group; }
   .template-table tr { break-inside: avoid; }
+  .merged-detail-record { break-inside: avoid; page-break-inside: avoid; }
 }

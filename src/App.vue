@@ -10,7 +10,7 @@ import type { FieldMetaLite } from './types';
 const {
   tableName, fieldList, linkedGroups, rows, templates, templateName, editorHtml, orientation, outputMode,
   imageWidthMm, imageHeightMm, imageFit,
-  printScope, loading, connectionReady, errorMessage, previewPages, isDetailTemplate, init, refreshFields, loadRows, loadLinkedFields,
+  printScope, loading, connectionReady, errorMessage, previewPages, init, refreshFields, loadRows, loadLinkedFields,
   isLinkField, isMultiLink, createTemplate, openTemplate, saveTemplate, deleteTemplate,
   exportTemplates, importTemplates, notify,
 } = usePrint();
@@ -874,7 +874,7 @@ const handleImport = async (file?: File) => {
         </el-select>
         <el-select v-model="outputMode" size="small" style="width: 118px">
           <el-option label="每条一页" value="one-per-record" />
-          <el-option label="合并成表" value="merge-records" :disabled="isDetailTemplate" />
+          <el-option label="合并成表" value="merge-records" />
         </el-select>
         <el-select v-model="orientation" size="small" style="width: 104px">
           <el-option label="A4 纵向" value="portrait" /><el-option label="A4 横向" value="landscape" />
