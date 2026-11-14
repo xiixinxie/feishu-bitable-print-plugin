@@ -426,9 +426,11 @@ const usePrint = () => {
 
   const emptyRow: PrintRow = { recordId: '', values: {}, linkedValues: {}, linkedRows: {} };
 
-  const isDetailTemplate = computed(() =>
-    /(?:class=["'][^"']*\bdetail-table\b|data-record-layout=["']detail["'])/.test(editorHtml.value),
-  );
+  const isDetailTemplate = computed(() => {
+    const root = document.createElement('div');
+    root.innerHTML = editorHtml.value;
+    return Boolean(root.querySelector('table[data-record-layout="detail"], table.detail-table'));
+  });
 
   const renderMergedHtml = () => {
     const root = document.createElement('div');
