@@ -240,6 +240,107 @@ const generateAutoTable = () => {
   });
 };
 
+const normalizeFieldName = (value: string) => value.toLowerCase().replace(/[\s/\\（）()·_-]/g, '');
+
+const purchaseField = (...aliases: string[]) => {
+  const normalizedAliases = aliases.map(normalizeFieldName);
+  const exact = normalizedAliases
+    .map(alias => fieldList.value.find(field => normalizeFieldName(field.name) === alias))
+    .find(Boolean);
+  if (exact) return exact;
+  return normalizedAliases
+    .slice()
+    .sort((left, right) => right.length - left.length)
+    .map(alias => fieldList.value.find(field => normalizeFieldName(field.name).includes(alias)))
+    .find(Boolean);
+};
+
+const purchaseToken = (label: string, aliases: string[], fallbackKind = '') => {
+  const field = purchaseField(...aliases);
+  if (field) return tokenHtml(field.name, 'field', field.id);
+  return fallbackKind ? tokenHtml(label, fallbackKind) : '';
+};
+
+const purchaseVariableCell = (label: string, aliases: string[], className = '') =>
+  `<td class="purchase-variable ${className}" data-variable-label="${escapeEditorHtml(label)}">${purchaseToken(label, aliases)}</td>`;
+
+const createPurchaseTemplate = async () => {
+  if (!fieldList.value.length) await refreshFields();
+  createTemplate();
+  templateName.value = 'HUATOP 采购订购单';
+  orientation.value = 'portrait';
+  outputMode.value = 'merge-records';
+  imageWidthMm.value = 18;
+  imageHeightMm.value = 16;
+  imageFit.value = 'contain';
+
+  const orderType = purchaseToken('订单类型', ['订单类型', '采购类型']);
+  const productionOrder = purchaseToken('生产单号', ['生产单号', '主单号', '单号']);
+  const specification = purchaseToken('尺寸/规格', ['尺寸规格', '规格', '尺寸']);
+  const color = purchaseToken('颜色', ['颜色', '色号']);
+  const material = purchaseToken('材料名称', ['材料名称', '物料名称', '产品名称', '产品', '材料']);
+  const quantity = purchaseToken('数量', ['采购数量', '订购数量', '数量']);
+  const unit = purchaseToken('单位', ['计量单位', '单位']);
+  const unitPrice = purchaseToken('单价', ['采购单价', '含税单价', '单价']);
+  const amount = purchaseToken('金额', ['采购金额', '总金额', '金额']);
+  const orderDate = purchaseToken('下单日期', ['下单日期', '采购日期', '订购日期']);
+  const deliveryDate = purchaseToken('要求交期', ['要求交期', '交货日期', '交期']);
+  const remark = purchaseToken('备注', ['费用备注', '采购备注', '备注']);
+  const picture = purchaseToken('图片', ['产品图片', '材料图片', '图片', '附件']);
+  const detailCells = [orderType, productionOrder, specification, color, material, quantity, unit, unitPrice, amount, orderDate, deliveryDate, `${remark}${picture}`]
+    .map((token, index) => `<td class="purchase-detail-cell" data-variable-label="${['订单类型','生产单号','尺寸/规格','颜色','材料名称','数量','单位','单价','金额','下单日期','要求交期','备注/图片'][index]}">${token}</td>`)
+    .join('');
+
+  editorHtml.value = `
+    <div class="purchase-order-template">
+      <div class="purchase-company-header">
+        <img class="purchase-logo" src="./assets/huatop-logo.png" alt="HUATOP">
+        <div>
+          <h1>Dongguan Huatop Sporting Goods Co., Ltd.</h1>
+          <h2>东 莞 市 桦 拓 运 动 用 品 有 限 公 司</h2>
+          <p>地址：广东省东莞市寮步镇塘唇金富西路9号3栋2楼 ｜ TEL：0769 88996850 ｜ E-MAIL：contact@dg-neoprene.com</p>
+        </div>
+      </div>
+      <div class="purchase-order-title">订 购 单</div>
+      <table class="purchase-meta-table">
+        <tbody>
+          <tr><th>订购单号：</th>${purchaseVariableCell('订购单号', ['订购单号','采购单号','订单号'])}<th>订购日期：</th><td class="purchase-variable" data-variable-label="订购日期">${purchaseToken('订购日期', ['订购日期','采购日期','下单日期'], 'date')}</td></tr>
+          <tr><th>厂商名称：</th>${purchaseVariableCell('厂商名称', ['厂商名称','供应商名称','供应商','厂商'])}<th>交货地点：</th>${purchaseVariableCell('交货地点', ['交货地点','送货地址','收货地址','交货地址'])}</tr>
+          <tr><th>联系人：</th>${purchaseVariableCell('联系人', ['供应商联系人','联系人'])}<th>付款方式：</th>${purchaseVariableCell('付款方式', ['付款方式','结算方式'])}</tr>
+          <tr><th>联系电话：</th>${purchaseVariableCell('联系电话', ['联系电话','手机号','电话'])}<th>税费 / 运费：</th>${purchaseVariableCell('税费 / 运费', ['税费运费','税费','运费'])}</tr>
+        </tbody>
+      </table>
+      <div class="purchase-section-title">订 单 明 细</div>
+      <table class="template-table purchase-detail-table" data-record-layout="list">
+        <colgroup><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:7%"><col style="width:14%"><col style="width:6%"><col style="width:5%"><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:7%"></colgroup>
+        <thead><tr><th>订单类型</th><th>生产单号</th><th>尺寸/规格</th><th>颜色</th><th>材料名称</th><th>数量</th><th>单位</th><th>单价<br>（RMB）</th><th>金额<br>（RMB）</th><th>下单日期</th><th>要求交期</th><th>备注/图片</th></tr></thead>
+        <tbody><tr data-record-repeat="true">${detailCells}</tr></tbody>
+        <tfoot><tr><th colspan="8">合计总金额（人民币）</th><td>${tokenHtml('单元格数值合计', 'count')}</td><td colspan="2" class="purchase-total-unit">RMB</td><td></td></tr></tfoot>
+      </table>
+      <div class="purchase-uppercase-row"><strong>人民币大写：</strong><span class="purchase-variable" data-variable-label="人民币大写金额">${purchaseToken('人民币大写金额', ['人民币大写','大写金额'])}</span></div>
+      <table class="purchase-confirm-table"><tbody><tr><th>订单备注 / 要求</th><td class="purchase-variable" data-variable-label="订单备注">${purchaseToken('订单备注', ['订单备注','采购要求','订单要求'])}</td></tr><tr><th>供应商确认交期</th><td class="purchase-variable" data-variable-label="供应商确认交期">${purchaseToken('供应商确认交期', ['供应商确认交期','确认交期'])}</td><th>回复日期</th><td class="purchase-variable" data-variable-label="回复日期">${purchaseToken('回复日期', ['回复日期','确认日期'])}</td></tr></tbody></table>
+      <table class="purchase-terms-table"><tbody>
+        <tr><th>订单确认</th><td>贵司在收到本订单后，须在1个工作日内盖章确认并回传我司。逾期未回传且未以书面形式提出异议的，视为贵司已充分理解并同意本订单的全部条款内容，并据此履行。回传须逐项明确可承诺交期；不能满足要求的，应在上述时限内书面说明并提出可行交期，调整须经双方书面确认。</td></tr>
+        <tr><th>送货规范</th><td>随货送货单须清晰注明我司订单号、材料名称、规格型号及数量。如未按要求提供完整有效文件，我司有权拒绝收货或暂缓验收入库，由此产生的费用及风险由贵司自行承担。</td></tr>
+        <tr><th>物流费用</th><td>运输方式及运费承担以本订单正文约定为准。如约定为运费到付或双方分担，贵司须在发运前提供合理、明确的费用预估清单，并经我司书面确认后方可安排发运。</td></tr>
+        <tr><th>质量验收</th><td>我司对货物的签收仅代表对外观、包装及数量的初步确认，不视为对货物质量的最终认可。原材料入库后如检测不符合本订单或相关标准要求，贵司须负责退换货并承担相关费用。未经我司书面同意，不得擅自换材、改变规格、颜色或工艺、降级或转包。</td></tr>
+        <tr><th>交付违约</th><td>贵司须严格按照订单约定的交期完成交付。每逾期一日，贵司应按订单总金额的0.5%支付违约金；逾期超过7日，我司有权取消订单并追究违约责任。发现可能延期时，须在24小时内书面预警。</td></tr>
+        <tr><th>溢短装约定</th><td>交付数量原则上应严格以订单约定为准。如因行业特性确需允许合理误差，误差范围不得超过±3%。结算数量以我司实际过磅或清点数量为准。</td></tr>
+        <tr><th>环保及合规</th><td>所交货物须符合欧盟最新环保标准（RoHS、REACH等）及国家相关安全、环保法规要求。</td></tr>
+        <tr><th>廉洁采购</th><td>供应商及其人员不得向我司员工、经办人或其关联方提供或变相输送任何不正当利益。举报电话：15362651491；邮箱：contact@dg-neoprene.com。</td></tr>
+        <tr><th>付款及保密</th><td>价格、税费、运费及付款方式以本单双方确认内容为准；货款仅付至经核实的供应商对公账户。供应商应对我司价格、图纸、样品、客户及订单资料保密。</td></tr>
+        <tr><th>争议解决</th><td>因履行本订单产生的争议，双方应首先协商解决；协商不成的，任何一方均可向我司所在地有管辖权的人民法院提起诉讼。</td></tr>
+      </tbody></table>
+      <table class="purchase-sign-table"><tbody><tr><th>批示：</th><td></td><th>审核：</th><td></td><th>采购：</th><td class="purchase-variable" data-variable-label="采购员">${purchaseToken('采购员', ['采购员','采购'])}</td></tr><tr><th>供应商签字 / 盖章：</th><td colspan="3"></td><th>签回日期：</th><td></td></tr></tbody></table>
+    </div><p><br></p>`;
+
+  page.value = 'editor';
+  await nextTick();
+  if (editorRef.value) editorRef.value.innerHTML = editorHtml.value;
+  resetHistory(editorHtml.value);
+  editorRef.value?.focus();
+};
+
 const insertSpecial = (kind: 'index' | 'count' | 'date', label: string) => insertHtml(tokenHtml(label, kind));
 const insertField = (field: FieldMetaLite, parentId = '') => insertHtml(tokenHtml(field.name, 'field', field.id, parentId));
 
@@ -852,6 +953,11 @@ const handleImport = async (file?: File) => {
             <span class="create-icon"><el-icon><Grid /></el-icon></span>
             <strong>自动生成表格</strong>
             <span>选择字段，自动创建多条记录打印清单</span>
+          </button>
+          <button class="create-card purchase-create-card" @click="createPurchaseTemplate">
+            <span class="create-icon"><el-icon><Tickets /></el-icon></span>
+            <strong>采购订购单</strong>
+            <span>按 HUATOP 格式创建，飞书字段可选择插入</span>
           </button>
         </div>
       </section>

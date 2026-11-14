@@ -50,6 +50,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .create-card:hover { color: #2f62df; background: #f8faff; border-color: #7f9fee; }
 .auto-create-card { color: #315fd2; background: #f4f7ff; border-style: solid; border-color: #b8c9f4; }
 .auto-create-card:hover { background: #edf3ff; border-color: #5f83e6; box-shadow: 0 8px 22px rgba(48,83,176,.12); }
+.purchase-create-card { color: #174f88; background: #f2f7fc; border-style: solid; border-color: #9db9da; }
+.purchase-create-card:hover { background: #eaf3fb; border-color: #2f6fae; box-shadow: 0 8px 22px rgba(24,78,132,.14); }
 .create-card strong { color: #33405a; font-size: 18px; }
 .create-card > span:last-child { font-size: 13px; }
 .create-icon { width: 36px; height: 36px; display: grid; place-items: center; margin-bottom: 4px; color: #2f62df; background: #edf3ff; border-radius: 10px; font-size: 21px; }
@@ -123,6 +125,32 @@ button { -webkit-tap-highlight-color: transparent; }
 .detail-table .detail-label { width: 18%; vertical-align: middle; text-align: left; }
 .detail-table .detail-value { width: 32%; min-height: 42px; vertical-align: middle; }
 .detail-table.merged-detail-record + .detail-table.merged-detail-record { margin-top: 10mm; }
+.purchase-order-template { color: #172b4d; font-family: Arial, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 9px; line-height: 1.35; }
+.purchase-company-header { position: relative; min-height: 74px; display: flex; align-items: center; justify-content: center; padding: 0 42px 10px; border-bottom: 1px solid #e36b28; text-align: center; }
+.purchase-company-header .purchase-logo { position: absolute; left: 0; top: 0; width: 18mm; height: 18mm; object-fit: contain; }
+.purchase-company-header h1 { margin: 0; color: #172b5b; font-size: 16px; line-height: 1.25; }
+.purchase-company-header h2 { margin: 4px 0 2px; color: #172b5b; font-size: 13px; letter-spacing: 4px; }
+.purchase-company-header p { margin: 0; color: #475569; font-size: 7px; }
+.purchase-order-title { margin: 10px 0 6px; color: #172b5b; font-size: 18px; font-weight: 700; letter-spacing: 10px; text-align: center; }
+.purchase-section-title { margin-top: 4px; padding: 4px; color: #172b5b; background: #e9f0f8; font-weight: 700; letter-spacing: 5px; text-align: center; }
+.purchase-meta-table, .purchase-confirm-table, .purchase-terms-table, .purchase-sign-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.purchase-meta-table th, .purchase-meta-table td, .purchase-confirm-table th, .purchase-confirm-table td, .purchase-terms-table th, .purchase-terms-table td, .purchase-sign-table th, .purchase-sign-table td { padding: 3px 5px; border: 1px solid #aebed2; vertical-align: middle; }
+.purchase-meta-table th { width: 13%; color: #173d6b; background: #edf2f7; text-align: left; }
+.purchase-meta-table td { width: 37%; min-height: 22px; }
+.purchase-detail-table { margin: 0; font-size: 7px; }
+.purchase-detail-table th, .purchase-detail-table td { min-height: 24px; padding: 3px 2px; border-color: #9eb3cc; vertical-align: middle; text-align: center; word-break: break-word; }
+.purchase-detail-table th { color: #fff; background: #245da7; }
+.purchase-detail-table .purchase-detail-cell { height: 34px; }
+.purchase-detail-table tfoot th, .purchase-detail-table tfoot td { color: #173d6b; background: #e9f0f8; font-weight: 700; }
+.purchase-uppercase-row { min-height: 24px; display: flex; gap: 5px; align-items: center; padding: 4px 6px; border: 1px solid #aebed2; border-top: 0; }
+.purchase-confirm-table th { width: 16%; color: #173d6b; background: #edf2f7; }
+.purchase-terms-table { margin-top: 7px; font-size: 6.5px; line-height: 1.25; }
+.purchase-terms-table th { width: 12%; color: #173d6b; background: #edf2f7; }
+.purchase-terms-table td { text-align: left; }
+.purchase-sign-table { margin-top: 7px; }
+.purchase-sign-table th { width: 12%; color: #173d6b; background: #edf2f7; text-align: left; }
+.purchase-variable { min-height: 18px; }
+.document-editor .purchase-variable:empty::before, .document-editor .purchase-detail-cell:empty::before { content: attr(data-variable-label) "：从左侧插入字段"; color: #9aa4b2; font-size: 7px; font-weight: 400; }
 .template-table .selected-table-cell { position: relative; outline: 2px solid #3370ff; outline-offset: -2px; background-color: #edf3ff; }
 .template-table .selected-table-cell::before {
   content: '';

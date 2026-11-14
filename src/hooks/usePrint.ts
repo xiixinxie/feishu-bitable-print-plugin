@@ -433,9 +433,10 @@ const usePrint = () => {
   const renderMergedHtml = () => {
     const root = document.createElement('div');
     root.innerHTML = editorHtml.value;
-    const repeatingRow = Array.from(root.querySelectorAll<HTMLTableRowElement>('tr')).find(tableRow =>
-      Boolean(tableRow.querySelector('[data-token-kind="field"]:not([data-parent-id])')),
-    );
+    const repeatingRow = root.querySelector<HTMLTableRowElement>('tr[data-record-repeat="true"]')
+      || Array.from(root.querySelectorAll<HTMLTableRowElement>('tr')).find(tableRow =>
+        Boolean(tableRow.querySelector('[data-token-kind="field"]:not([data-parent-id])')),
+      );
     if (repeatingRow) {
       rows.value.forEach((row, index) => {
         const clone = repeatingRow.cloneNode(true) as HTMLTableRowElement;
