@@ -72,6 +72,15 @@ button { -webkit-tap-highlight-color: transparent; }
 .panel-heading small { display: block; max-width: 230px; margin-top: 5px; overflow: hidden; color: #8791a2; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .field-search { width: calc(100% - 32px) !important; max-width: calc(100% - 32px); margin: 10px 16px; align-self: stretch; }
 .field-help { margin: 0 18px 12px; color: #8a94a6; font-size: 12px; line-height: 1.5; }
+.purchase-operator-setting {
+  margin: 0 16px 14px;
+  padding: 12px;
+  border: 1px solid #c9dcff;
+  border-radius: 10px;
+  background: #f5f9ff;
+  strong { display: block; margin-bottom: 8px; font-size: 13px; color: #1f2329; }
+  small { display: block; margin-top: 7px; color: #77839a; line-height: 1.45; }
+}
 .field-error { display: grid; gap: 8px; margin: 0 16px 12px; padding: 10px 11px; color: #8f4f0d; background: #fff7e8; border: 1px solid #ffd6a1; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .field-error .el-button { justify-self: start; }
 .special-fields { display: grid; gap: 8px; padding: 0 16px 14px; border-bottom: 1px solid #e8ebf0; }

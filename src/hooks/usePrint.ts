@@ -32,11 +32,20 @@ const usePrint = () => {
   const loading = ref(false);
   const connectionReady = ref(false);
   const errorMessage = ref('');
+  const automaticOrderNumber = ref('');
+  let orderNumberSelectionKey = '';
   let selectionRefreshTimer: ReturnType<typeof setTimeout> | undefined;
   let stopSelectionListener: (() => void) | undefined;
   let refreshPromise: Promise<boolean> | null = null;
 
   const wait = (milliseconds: number) => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+  const generateOrderNumber = () => {
+    const now = new Date();
+    const date = [now.getFullYear(), now.getMonth() + 1, now.getDate()].map((part, index) => index ? String(part).padStart(2, '0') : String(part)).join('');
+    const time = [now.getHours(), now.getMinutes(), now.getSeconds()].map(part => String(part).padStart(2, '0')).join('');
+    return `CG-${date}-${time}`;
+  };
 
   const isLinkField = (field: FieldMetaLite) => field.type === FIELD_SINGLE_LINK || field.type === FIELD_DUPLEX_LINK;
   const isMultiLink = (field: FieldMetaLite) => isLinkField(field) && Boolean(field.property?.multiple);
@@ -206,6 +215,12 @@ const usePrint = () => {
         recordIds = (await view.getVisibleRecordIdList()).filter(Boolean) as string[];
       }
 
+      const nextOrderNumberKey = recordIds.join('|');
+      if (!automaticOrderNumber.value || nextOrderNumberKey !== orderNumberSelectionKey) {
+        automaticOrderNumber.value = generateOrderNumber();
+        orderNumberSelectionKey = nextOrderNumberKey;
+      }
+
       rows.value = await Promise.all(recordIds.slice(0, 200).map(async recordId => {
         const values: Record<string, PrintCell> = {};
         const linkedValues: Record<string, Record<string, PrintCell>> = {};
@@ -317,6 +332,11 @@ const usePrint = () => {
     const kind = token.dataset.tokenKind;
     if (kind === 'index') { token.replaceWith(String(serial)); return; }
     if (kind === 'date') { token.replaceWith(new Date().toLocaleDateString('zh-CN')); return; }
+    if (kind === 'order-number') {
+      if (!automaticOrderNumber.value) automaticOrderNumber.value = generateOrderNumber();
+      token.replaceWith(automaticOrderNumber.value);
+      return;
+    }
     if (kind === 'count') return;
     const fieldId = token.dataset.fieldId || '';
     const parentId = token.dataset.parentId;

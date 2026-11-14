@@ -35,6 +35,7 @@ const selectedCell = ref<HTMLTableCellElement | null>(null);
 const selectedImage = ref<HTMLImageElement | null>(null);
 const localImageWidthMm = ref(60);
 const fontSizePt = ref(12);
+const purchaseOperatorName = ref(localStorage.getItem('xii_purchase_operator_name') || '');
 const editorHistory = ref<string[]>([]);
 const historyIndex = ref(-1);
 const hasPendingHistory = ref(false);
@@ -242,18 +243,20 @@ const generateAutoTable = () => {
 
 const normalizeFieldName = (value: string) => value.toLowerCase().replace(/[\s/\\（）()·_-]/g, '');
 
-const purchaseField = (...aliases: string[]) => {
+const findPurchaseField = (fields: FieldMetaLite[], aliases: string[]) => {
   const normalizedAliases = aliases.map(normalizeFieldName);
   const exact = normalizedAliases
-    .map(alias => fieldList.value.find(field => normalizeFieldName(field.name) === alias))
+    .map(alias => fields.find(field => normalizeFieldName(field.name) === alias))
     .find(Boolean);
   if (exact) return exact;
   return normalizedAliases
     .slice()
     .sort((left, right) => right.length - left.length)
-    .map(alias => fieldList.value.find(field => normalizeFieldName(field.name).includes(alias)))
+    .map(alias => fields.find(field => normalizeFieldName(field.name).includes(alias)))
     .find(Boolean);
 };
+
+const purchaseField = (...aliases: string[]) => findPurchaseField(fieldList.value, aliases);
 
 const purchaseToken = (label: string, aliases: string[], fallbackKind = '') => {
   const field = purchaseField(...aliases);
@@ -264,8 +267,49 @@ const purchaseToken = (label: string, aliases: string[], fallbackKind = '') => {
 const purchaseVariableCell = (label: string, aliases: string[], className = '') =>
   `<td class="purchase-variable ${className}" data-variable-label="${escapeEditorHtml(label)}">${purchaseToken(label, aliases)}</td>`;
 
+const isPurchaseTemplate = computed(() => editorHtml.value.includes('purchase-order-template'));
+
+const linkedSupplierToken = (aliases: string[], supplierField?: FieldMetaLite) => {
+  if (!supplierField) return '';
+  const child = findPurchaseField(linkedGroups.value[supplierField.id]?.fields || [], aliases);
+  return child ? tokenHtml(child.name, 'field', child.id, supplierField.id) : '';
+};
+
+const ensurePurchaseTemplateDefaults = async () => {
+  if (!isPurchaseTemplate.value || !editorRef.value) return;
+  const supplierField = purchaseField('供应商名称', '供应商', '厂商名称', '厂商');
+  if (supplierField && isLinkField(supplierField)) await loadLinkedFields(supplierField);
+  const defaults: Array<[string, string]> = [
+    ['订购单号', tokenHtml('订购单号', 'order-number')],
+    ['联系人', purchaseToken('联系人', ['供应商联系人', '联系人']) || linkedSupplierToken(['联系人', '联络人', '业务联系人'], supplierField)],
+    ['联系电话', purchaseToken('联系电话', ['联系电话', '手机号', '电话']) || linkedSupplierToken(['联系电话', '手机号码', '手机号', '电话'], supplierField)],
+    ['数量', purchaseToken('采购数量', ['采购数量', '订购数量', '数量'])],
+  ];
+  let changed = false;
+  defaults.forEach(([label, html]) => {
+    if (!html) return;
+    const cell = editorRef.value?.querySelector<HTMLElement>(`[data-variable-label="${label}"]`);
+    if (!cell || cell.querySelector('[data-token-kind]') || cell.textContent?.trim()) return;
+    cell.innerHTML = html;
+    changed = true;
+  });
+  const purchaserCell = editorRef.value.querySelector<HTMLElement>('[data-variable-label="采购员"]');
+  if (purchaserCell && !purchaserCell.querySelector('[data-token-kind="field"]') && purchaseOperatorName.value.trim()) {
+    purchaserCell.textContent = purchaseOperatorName.value.trim();
+    changed = true;
+  }
+  if (changed) syncEditor(true);
+};
+
+const applyPurchaseOperatorName = () => {
+  localStorage.setItem('xii_purchase_operator_name', purchaseOperatorName.value.trim());
+  void ensurePurchaseTemplateDefaults();
+};
+
 const createPurchaseTemplate = async () => {
   if (!fieldList.value.length) await refreshFields();
+  const supplierField = purchaseField('供应商名称', '供应商', '厂商名称', '厂商');
+  if (supplierField && isLinkField(supplierField)) await loadLinkedFields(supplierField);
   createTemplate();
   templateName.value = 'HUATOP 采购订购单';
   orientation.value = 'portrait';
@@ -304,10 +348,10 @@ const createPurchaseTemplate = async () => {
       <div class="purchase-order-title">订 购 单</div>
       <table class="purchase-meta-table">
         <tbody>
-          <tr><th>订购单号：</th>${purchaseVariableCell('订购单号', ['订购单号','采购单号','订单号'])}<th>订购日期：</th><td class="purchase-variable" data-variable-label="订购日期">${purchaseToken('订购日期', ['订购日期','采购日期','下单日期'], 'date')}</td></tr>
+          <tr><th>订购单号：</th><td class="purchase-variable" data-variable-label="订购单号">${tokenHtml('订购单号', 'order-number')}</td><th>订购日期：</th><td class="purchase-variable" data-variable-label="订购日期">${purchaseToken('订购日期', ['订购日期','采购日期','下单日期'], 'date')}</td></tr>
           <tr><th>厂商名称：</th>${purchaseVariableCell('厂商名称', ['厂商名称','供应商名称','供应商','厂商'])}<th>交货地点：</th>${purchaseVariableCell('交货地点', ['交货地点','送货地址','收货地址','交货地址'])}</tr>
-          <tr><th>联系人：</th>${purchaseVariableCell('联系人', ['供应商联系人','联系人'])}<th>付款方式：</th>${purchaseVariableCell('付款方式', ['付款方式','结算方式'])}</tr>
-          <tr><th>联系电话：</th>${purchaseVariableCell('联系电话', ['联系电话','手机号','电话'])}<th>税费 / 运费：</th>${purchaseVariableCell('税费 / 运费', ['税费运费','税费','运费'])}</tr>
+          <tr><th>联系人：</th><td class="purchase-variable" data-variable-label="联系人">${purchaseToken('联系人', ['供应商联系人','联系人']) || linkedSupplierToken(['联系人','联络人','业务联系人'], supplierField)}</td><th>付款方式：</th>${purchaseVariableCell('付款方式', ['付款方式','结算方式'])}</tr>
+          <tr><th>联系电话：</th><td class="purchase-variable" data-variable-label="联系电话">${purchaseToken('联系电话', ['联系电话','手机号','电话']) || linkedSupplierToken(['联系电话','手机号码','手机号','电话'], supplierField)}</td><th>税费 / 运费：</th>${purchaseVariableCell('税费 / 运费', ['税费运费','税费','运费'])}</tr>
         </tbody>
       </table>
       <div class="purchase-section-title">订 单 明 细</div>
@@ -331,7 +375,7 @@ const createPurchaseTemplate = async () => {
         <tr><th>付款及保密</th><td>价格、税费、运费及付款方式以本单双方确认内容为准；货款仅付至经核实的供应商对公账户。供应商应对我司价格、图纸、样品、客户及订单资料保密。</td></tr>
         <tr><th>争议解决</th><td>因履行本订单产生的争议，双方应首先协商解决；协商不成的，任何一方均可向我司所在地有管辖权的人民法院提起诉讼。</td></tr>
       </tbody></table>
-      <table class="purchase-sign-table"><tbody><tr><th>批示：</th><td></td><th>审核：</th><td></td><th>采购：</th><td class="purchase-variable" data-variable-label="采购员">${purchaseToken('采购员', ['采购员','采购'])}</td></tr><tr><th>供应商签字 / 盖章：</th><td colspan="3"></td><th>签回日期：</th><td></td></tr></tbody></table>
+      <table class="purchase-sign-table"><tbody><tr><th>批示：</th><td></td><th>审核：</th><td></td><th>采购：</th><td class="purchase-variable" data-variable-label="采购员">${purchaseToken('采购员', ['采购员','采购人','采购姓名','采购负责人','采购']) || escapeEditorHtml(purchaseOperatorName.value.trim())}</td></tr><tr><th>供应商签字 / 盖章：</th><td colspan="3"></td><th>签回日期：</th><td></td></tr></tbody></table>
     </div><p><br></p>`;
 
   page.value = 'editor';
@@ -747,6 +791,7 @@ const confirmSave = async () => {
 };
 
 const showPreview = async () => {
+  await ensurePurchaseTemplateDefaults();
   syncEditor(true);
   previewMode.value = true;
   await nextTick();
@@ -1024,6 +1069,11 @@ const handleImport = async (file?: File) => {
             <template #prefix><el-icon><Search /></el-icon></template>
           </el-input>
           <div class="field-help">点击右侧 <b>＋</b> 插入字段；关联字段可展开一层。</div>
+          <div v-if="isPurchaseTemplate" class="purchase-operator-setting">
+            <strong>采购姓名</strong>
+            <el-input v-model="purchaseOperatorName" placeholder="输入本单采购姓名" clearable @change="applyPurchaseOperatorName" @blur="applyPurchaseOperatorName" />
+            <small>如果飞书中有“采购员/采购人”字段，会优先读取字段值。</small>
+          </div>
           <div v-if="errorMessage" class="field-error">
             <span>{{ errorMessage }}</span>
             <el-button size="small" @click="init">重新读取</el-button>
