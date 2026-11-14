@@ -284,6 +284,7 @@ const ensurePurchaseTemplateDefaults = async () => {
     ['联系人', purchaseToken('联系人', ['供应商联系人', '联系人']) || linkedSupplierToken(['联系人', '联络人', '业务联系人'], supplierField)],
     ['联系电话', purchaseToken('联系电话', ['联系电话', '手机号', '电话']) || linkedSupplierToken(['联系电话', '手机号码', '手机号', '电话'], supplierField)],
     ['数量', purchaseToken('采购数量', ['采购数量', '订购数量', '数量'])],
+    ['人民币大写金额', tokenHtml('人民币大写金额', 'uppercase-amount')],
   ];
   let changed = false;
   defaults.forEach(([label, html]) => {
@@ -292,6 +293,12 @@ const ensurePurchaseTemplateDefaults = async () => {
     if (!cell || cell.querySelector('[data-token-kind]') || cell.textContent?.trim()) return;
     cell.innerHTML = html;
     changed = true;
+  });
+  editorRef.value.querySelectorAll<HTMLTableCellElement>('.purchase-detail-table thead th').forEach(cell => {
+    if (cell.textContent?.replace(/\s+/g, '') === '金额（RMB）') {
+      cell.innerHTML = '总价<br>（RMB）';
+      changed = true;
+    }
   });
   const purchaserCell = editorRef.value.querySelector<HTMLElement>('[data-variable-label="采购员"]');
   if (purchaserCell && !purchaserCell.querySelector('[data-token-kind="field"]') && purchaseOperatorName.value.trim()) {
@@ -326,7 +333,7 @@ const createPurchaseTemplate = async () => {
   const quantity = purchaseToken('数量', ['采购数量', '订购数量', '数量']);
   const unit = purchaseToken('单位', ['计量单位', '单位']);
   const unitPrice = purchaseToken('单价', ['采购单价', '含税单价', '单价']);
-  const amount = purchaseToken('金额', ['采购金额', '总金额', '金额']);
+  const amount = purchaseToken('总价', ['采购总价', '采购金额', '总价', '总金额', '金额']);
   const orderDate = purchaseToken('下单日期', ['下单日期', '采购日期', '订购日期']);
   const deliveryDate = purchaseToken('要求交期', ['要求交期', '交货日期', '交期']);
   const remark = purchaseToken('备注', ['费用备注', '采购备注', '备注']);
@@ -357,11 +364,11 @@ const createPurchaseTemplate = async () => {
       <div class="purchase-section-title">订 单 明 细</div>
       <table class="template-table purchase-detail-table" data-record-layout="list">
         <colgroup><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:7%"><col style="width:14%"><col style="width:6%"><col style="width:5%"><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:7%"></colgroup>
-        <thead><tr><th>订单类型</th><th>生产单号</th><th>尺寸/规格</th><th>颜色</th><th>材料名称</th><th>数量</th><th>单位</th><th>单价<br>（RMB）</th><th>金额<br>（RMB）</th><th>下单日期</th><th>要求交期</th><th>备注/图片</th></tr></thead>
+        <thead><tr><th>订单类型</th><th>生产单号</th><th>尺寸/规格</th><th>颜色</th><th>材料名称</th><th>数量</th><th>单位</th><th>单价<br>（RMB）</th><th>总价<br>（RMB）</th><th>下单日期</th><th>要求交期</th><th>备注/图片</th></tr></thead>
         <tbody><tr data-record-repeat="true">${detailCells}</tr></tbody>
         <tfoot><tr><th colspan="8">合计总金额（人民币）</th><td>${tokenHtml('单元格数值合计', 'count')}</td><td colspan="2" class="purchase-total-unit">RMB</td><td></td></tr></tfoot>
       </table>
-      <div class="purchase-uppercase-row"><strong>人民币大写：</strong><span class="purchase-variable" data-variable-label="人民币大写金额">${purchaseToken('人民币大写金额', ['人民币大写','大写金额'])}</span></div>
+      <div class="purchase-uppercase-row"><strong>人民币大写：</strong><span class="purchase-variable" data-variable-label="人民币大写金额">${tokenHtml('人民币大写金额', 'uppercase-amount')}</span></div>
       <table class="purchase-confirm-table"><tbody><tr><th>订单备注 / 要求</th><td class="purchase-variable" data-variable-label="订单备注">${purchaseToken('订单备注', ['订单备注','采购要求','订单要求'])}</td></tr><tr><th>供应商确认交期</th><td class="purchase-variable" data-variable-label="供应商确认交期">${purchaseToken('供应商确认交期', ['供应商确认交期','确认交期'])}</td><th>回复日期</th><td class="purchase-variable" data-variable-label="回复日期">${purchaseToken('回复日期', ['回复日期','确认日期'])}</td></tr></tbody></table>
       <table class="purchase-terms-table"><tbody>
         <tr><th>订单确认</th><td>贵司在收到本订单后，须在1个工作日内盖章确认并回传我司。逾期未回传且未以书面形式提出异议的，视为贵司已充分理解并同意本订单的全部条款内容，并据此履行。回传须逐项明确可承诺交期；不能满足要求的，应在上述时限内书面说明并提出可行交期，调整须经双方书面确认。</td></tr>

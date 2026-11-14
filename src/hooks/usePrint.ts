@@ -337,7 +337,7 @@ const usePrint = () => {
       token.replaceWith(automaticOrderNumber.value);
       return;
     }
-    if (kind === 'count') return;
+    if (kind === 'count' || kind === 'uppercase-amount') return;
     const fieldId = token.dataset.fieldId || '';
     const parentId = token.dataset.parentId;
     const cell = parentId
@@ -435,12 +435,52 @@ const usePrint = () => {
     root.querySelectorAll('[data-print-record-row]').forEach(row => row.removeAttribute('data-print-record-row'));
   };
 
+  const currencyToChineseUppercase = (amount: number) => {
+    if (!Number.isFinite(amount)) return '零元整';
+    const value = Math.round(Math.abs(amount) * 100);
+    if (value === 0) return '零元整';
+    const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖'];
+    const units = ['分', '角', '元', '拾', '佰', '仟', '万', '拾', '佰', '仟', '亿', '拾', '佰', '仟', '万'];
+    let result = '';
+    let zeroPending = false;
+    String(value).split('').reverse().forEach((character, index) => {
+      const digit = Number(character);
+      const unit = units[index] || '';
+      if (digit === 0) {
+        if (index === 2 || index === 6 || index === 10 || index === 14) result = unit + result;
+        zeroPending = Boolean(result) && index > 1;
+        return;
+      }
+      result = `${digits[digit]}${unit}${zeroPending ? '零' : ''}${result}`;
+      zeroPending = false;
+    });
+    result = result
+      .replace(/零+/g, '零')
+      .replace(/零(万|亿)/g, '$1')
+      .replace(/亿万/g, '亿')
+      .replace(/零元/g, '元')
+      .replace(/^元/, '零元');
+    if (value % 100 === 0) result += '整';
+    return `${amount < 0 ? '负' : ''}${result}`;
+  };
+
+  const replaceUppercaseAmountTokens = (root: HTMLElement) => {
+    const totalCell = root.querySelector<HTMLElement>('.purchase-detail-table tfoot td');
+    const source = (totalCell?.textContent || '').replace(/[，,\s]/g, '');
+    const match = source.match(/-?(?:\d+(?:\.\d+)?|\.\d+)/);
+    const total = match ? Number(match[0]) : 0;
+    root.querySelectorAll<HTMLElement>('[data-token-kind="uppercase-amount"]').forEach(token => {
+      token.replaceWith(currencyToChineseUppercase(total));
+    });
+  };
+
   const renderRecordHtml = (row: PrintRow, index: number) => {
     const root = document.createElement('div');
     root.innerHTML = editorHtml.value;
     expandLinkedDetailRows(root, row);
     root.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => replaceToken(token, row, index + 1));
     replaceColumnSumTokens(root);
+    replaceUppercaseAmountTokens(root);
     return root.innerHTML;
   };
 
@@ -471,6 +511,7 @@ const usePrint = () => {
     const firstRow = rows.value[0] || emptyRow;
     root.querySelectorAll<HTMLElement>('[data-token-kind]').forEach(token => replaceToken(token, firstRow, 1));
     replaceColumnSumTokens(root);
+    replaceUppercaseAmountTokens(root);
     return root.innerHTML;
   };
 

@@ -152,6 +152,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .purchase-detail-table .purchase-detail-cell { height: 34px; }
 .purchase-detail-table tfoot th, .purchase-detail-table tfoot td { color: #173d6b; background: #e9f0f8; font-weight: 700; }
 .purchase-uppercase-row { min-height: 24px; display: flex; gap: 5px; align-items: center; padding: 4px 6px; border: 1px solid #aebed2; border-top: 0; }
+.purchase-confirm-table tr:first-child > th, .purchase-confirm-table tr:first-child > td { border-top: 0; }
 .purchase-confirm-table th { width: 16%; color: #173d6b; background: #edf2f7; }
 .purchase-terms-table { margin-top: 7px; font-size: 6.5px; line-height: 1.25; }
 .purchase-terms-table th { width: 12%; color: #173d6b; background: #edf2f7; }
