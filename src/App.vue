@@ -356,7 +356,7 @@ const createOutsourcingTemplate = async () => {
   imageHeightMm.value = 16;
   imageFit.value = 'contain';
 
-  const process = purchaseToken('加工工序', ['加工项目', '加工工序', '工序', '加工内容']);
+  const process = purchaseToken('项目', ['加工项目', '项目', '加工工序', '工序', '加工内容']);
   const productionOrder = purchaseToken('生产单号', ['生产单号', '主单号', '单号']);
   const product = purchaseToken('产品', ['产品名称', '产品', '材料名称', '物料名称', '材料']);
   const quantity = purchaseToken('数量', ['加工数量', '委外数量', '数量']);
@@ -367,7 +367,7 @@ const createOutsourcingTemplate = async () => {
   const deliveryDate = purchaseToken('要求交期', ['要求交期', '交货日期', '交期']);
   const remark = purchaseToken('备注', ['加工备注', '备注', '要求']);
   const picture = purchaseToken('产品图片', ['产品图片', '图片', '附件']);
-  const labels = ['加工工序','生产单号','产品','数量','单位','加工单价','加工金额','下单日期','要求交期','备注/图片'];
+  const labels = ['项目','生产单号','产品','数量','单位','加工单价','加工金额','下单日期','要求交期','备注/图片'];
   const detailCells = [process, productionOrder, product, quantity, unit, unitPrice, amount, orderDate, deliveryDate, `${remark}${picture}`]
     .map((token, index) => `<td class="purchase-detail-cell" data-variable-label="${labels[index]}">${token}</td>`)
     .join('');
@@ -391,7 +391,7 @@ const createOutsourcingTemplate = async () => {
       <div class="purchase-section-title">外 加 工 明 细</div>
       <table class="template-table purchase-detail-table" data-record-layout="list">
         <colgroup><col style="width:9%"><col style="width:11%"><col style="width:18%"><col style="width:7%"><col style="width:7%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:8%"></colgroup>
-        <thead><tr><th>加工工序</th><th>生产单号</th><th>产品／材料名称</th><th>数量</th><th>单位</th><th>加工单价<br>（RMB）</th><th>加工金额<br>（RMB）</th><th>下单日期</th><th>要求交期</th><th>备注/图片</th></tr></thead>
+        <thead><tr><th>项目</th><th>生产单号</th><th>产品／材料名称</th><th>数量</th><th>单位</th><th>加工单价<br>（RMB）</th><th>加工金额<br>（RMB）</th><th>下单日期</th><th>要求交期</th><th>备注/图片</th></tr></thead>
         <tbody><tr data-record-repeat="true">${detailCells}</tr></tbody>
         <tfoot><tr><th colspan="6">合计加工金额（人民币）</th><td colspan="2">${tokenHtml('单元格数值合计', 'count')}</td><td colspan="2" class="purchase-total-unit">RMB</td></tr></tfoot>
       </table>
@@ -963,6 +963,19 @@ const getPdfExportName = () => {
       : [];
     if (productionOrders.length === 1) return `${productionOrders[0]}委外加工单`;
     if (productionOrders.length > 1) return `${productionOrders[0]}等${productionOrders.length}个生产单号委外加工单`;
+  }
+  if (isPurchaseTemplate.value) {
+    const rendered = document.createElement('div');
+    rendered.innerHTML = previewPages.value[0] || '';
+    const renderedOrderNumber = rendered
+      .querySelector<HTMLElement>('[data-variable-label="订购单号"]')
+      ?.textContent?.trim();
+    const orderNumberField = purchaseField('订购单号', '采购单号', '采购编号', '单号');
+    const fieldOrderNumber = orderNumberField
+      ? rows.value.find(row => row.values[orderNumberField.id]?.text?.trim())?.values[orderNumberField.id]?.text?.trim()
+      : '';
+    const orderNumber = fieldOrderNumber || renderedOrderNumber;
+    if (orderNumber) return `${orderNumber}-材料采购单`;
   }
   return templateName.value || tableName.value || 'xii打印';
 };
