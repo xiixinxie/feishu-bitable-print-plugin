@@ -313,6 +313,114 @@ const applyPurchaseOperatorName = () => {
   void ensurePurchaseTemplateDefaults();
 };
 
+const isOutsourcingTemplate = computed(() => editorHtml.value.includes('outsourcing-order-template'));
+
+const linkedFactoryToken = (aliases: string[], factoryField?: FieldMetaLite) => {
+  if (!factoryField) return '';
+  const child = findPurchaseField(linkedGroups.value[factoryField.id]?.fields || [], aliases);
+  return child ? tokenHtml(child.name, 'field', child.id, factoryField.id) : '';
+};
+
+const ensureOutsourcingTemplateDefaults = async () => {
+  if (!isOutsourcingTemplate.value || !editorRef.value) return;
+  const factoryField = purchaseField('受托方加工厂', '受托方', '加工厂', '外发厂', '供应商');
+  if (factoryField && isLinkField(factoryField)) await loadLinkedFields(factoryField);
+  const defaults: Array<[string, string]> = [
+    ['加工单号', purchaseToken('加工单号', ['加工单号', '合同编号', '委外单号'])],
+    ['受托方名称', purchaseToken('受托方名称', ['受托方加工厂', '受托方', '加工厂', '外发厂', '供应商'])],
+    ['联系人', purchaseToken('联系人', ['受托方联系人', '加工厂联系人', '联系人']) || linkedFactoryToken(['联系人', '联络人', '业务联系人'], factoryField)],
+    ['联系电话', purchaseToken('联系电话', ['受托方电话', '加工厂电话', '联系电话', '手机号', '电话']) || linkedFactoryToken(['联系电话', '手机号码', '手机号', '电话'], factoryField)],
+    ['数量', purchaseToken('数量', ['加工数量', '委外数量', '数量'])],
+    ['人民币大写金额', tokenHtml('人民币大写金额', 'uppercase-amount')],
+  ];
+  let changed = false;
+  defaults.forEach(([label, html]) => {
+    if (!html) return;
+    const cell = editorRef.value?.querySelector<HTMLElement>(`[data-variable-label="${label}"]`);
+    if (!cell || cell.querySelector('[data-token-kind]') || cell.textContent?.trim()) return;
+    cell.innerHTML = html;
+    changed = true;
+  });
+  if (changed) syncEditor(true);
+};
+
+const createOutsourcingTemplate = async () => {
+  if (!fieldList.value.length) await refreshFields();
+  const factoryField = purchaseField('受托方加工厂', '受托方', '加工厂', '外发厂', '供应商');
+  if (factoryField && isLinkField(factoryField)) await loadLinkedFields(factoryField);
+  createTemplate();
+  templateName.value = 'HUATOP 委托外加工单';
+  orientation.value = 'portrait';
+  outputMode.value = 'merge-records';
+  imageWidthMm.value = 18;
+  imageHeightMm.value = 16;
+  imageFit.value = 'contain';
+
+  const process = purchaseToken('加工工序', ['加工项目', '加工工序', '工序', '加工内容']);
+  const productionOrder = purchaseToken('生产单号', ['生产单号', '主单号', '单号']);
+  const specification = purchaseToken('尺寸/规格', ['尺寸规格', '规格', '尺寸']);
+  const color = purchaseToken('颜色', ['颜色', '色号']);
+  const product = purchaseToken('产品/材料名称', ['产品名称', '产品', '材料名称', '物料名称', '材料']);
+  const quantity = purchaseToken('数量', ['加工数量', '委外数量', '数量']);
+  const unit = purchaseToken('单位', ['计量单位', '单位']);
+  const unitPrice = purchaseToken('加工单价', ['加工单价', '委外单价', '单价元', '单价']);
+  const amount = purchaseToken('加工金额', ['加工金额', '委外金额', '订单总金额', '金额元', '金额', '总价']);
+  const orderDate = purchaseToken('下单日期', ['下单日期', '委托日期', '加工日期']);
+  const deliveryDate = purchaseToken('要求交期', ['要求交期', '交货日期', '交期']);
+  const remark = purchaseToken('备注', ['加工备注', '备注', '要求']);
+  const picture = purchaseToken('产品图片', ['产品图片', '图片', '附件']);
+  const labels = ['加工工序','生产单号','尺寸/规格','颜色','产品/材料名称','数量','单位','加工单价','加工金额','下单日期','要求交期','备注/图片'];
+  const detailCells = [process, productionOrder, specification, color, product, quantity, unit, unitPrice, amount, orderDate, deliveryDate, `${remark}${picture}`]
+    .map((token, index) => `<td class="purchase-detail-cell" data-variable-label="${labels[index]}">${token}</td>`)
+    .join('');
+  const factoryName = purchaseToken('受托方名称', ['受托方加工厂', '受托方', '加工厂', '外发厂', '供应商']);
+  const contact = purchaseToken('联系人', ['受托方联系人', '加工厂联系人', '联系人']) || linkedFactoryToken(['联系人', '联络人', '业务联系人'], factoryField);
+  const phone = purchaseToken('联系电话', ['受托方电话', '加工厂电话', '联系电话', '手机号', '电话']) || linkedFactoryToken(['联系电话', '手机号码', '手机号', '电话'], factoryField);
+
+  editorHtml.value = `
+    <div class="outsourcing-order-template">
+      <div class="purchase-company-header">
+        <img class="purchase-logo" src="./assets/huatop-logo.png" alt="HUATOP">
+        <div><h1>Dongguan Huatop Sporting Goods Co., Ltd.</h1><h2>东 莞 市 桦 拓 运 动 用 品 有 限 公 司</h2><p>地址：广东省东莞市寮步镇塘唇金富西路9号3栋2楼 ｜ TEL：0769 88996850 ｜ E-MAIL：contact@dg-neoprene.com</p></div>
+      </div>
+      <div class="purchase-order-title">委 托 外 加 工 单</div>
+      <table class="purchase-meta-table"><tbody>
+        <tr><th>加工单号：</th><td class="purchase-variable" data-variable-label="加工单号">${purchaseToken('加工单号', ['加工单号','合同编号','委外单号'])}</td><th>委托日期：</th><td class="purchase-variable" data-variable-label="委托日期">${purchaseToken('委托日期', ['委托日期','下单日期','加工日期'], 'date')}</td></tr>
+        <tr><th>受托方名称：</th><td class="purchase-variable" data-variable-label="受托方名称">${factoryName}</td><th>交货地点：</th><td>桦拓</td></tr>
+        <tr><th>联系人：</th><td class="purchase-variable" data-variable-label="联系人">${contact}</td><th>付款方式：</th><td class="purchase-variable" data-variable-label="付款方式">${purchaseToken('付款方式', ['付款方式','结算方式']) || '月结30天'}</td></tr>
+        <tr><th>联系电话：</th><td class="purchase-variable" data-variable-label="联系电话">${phone}</td><th>税费 / 运费：</th><td class="purchase-variable" data-variable-label="税费 / 运费">${purchaseToken('税费 / 运费', ['税费运费','税费','运费'])}</td></tr>
+      </tbody></table>
+      <div class="purchase-section-title">外 加 工 明 细</div>
+      <table class="template-table purchase-detail-table" data-record-layout="list">
+        <colgroup><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:7%"><col style="width:14%"><col style="width:6%"><col style="width:5%"><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:7%"></colgroup>
+        <thead><tr><th>加工工序</th><th>生产单号</th><th>尺寸/规格</th><th>颜色</th><th>产品／材料名称</th><th>数量</th><th>单位</th><th>加工单价<br>（RMB）</th><th>加工金额<br>（RMB）</th><th>下单日期</th><th>要求交期</th><th>备注/图片</th></tr></thead>
+        <tbody><tr data-record-repeat="true">${detailCells}</tr></tbody>
+        <tfoot><tr><th colspan="8">合计加工金额（人民币）</th><td>${tokenHtml('单元格数值合计', 'count')}</td><td colspan="2" class="purchase-total-unit">RMB</td><td></td></tr></tfoot>
+      </table>
+      <div class="purchase-uppercase-row"><strong>人民币大写：</strong><span class="purchase-variable" data-variable-label="人民币大写金额">${tokenHtml('人民币大写金额', 'uppercase-amount')}</span></div>
+      <table class="purchase-confirm-table"><tbody><tr><th>加工备注 / 要求</th><td class="purchase-variable" data-variable-label="加工备注">${purchaseToken('加工备注', ['加工备注','加工要求','备注','要求'])}</td></tr><tr><th>受托方确认交期</th><td class="purchase-variable" data-variable-label="受托方确认交期">${purchaseToken('受托方确认交期', ['受托方确认交期','确认交期'])}</td><th>回复日期</th><td class="purchase-variable" data-variable-label="回复日期">${purchaseToken('回复日期', ['回复日期','确认日期'])}</td></tr></tbody></table>
+      <table class="purchase-terms-table"><tbody>
+        <tr><th>订单确认</th><td>甲方（委托方）：东莞市桦拓运动用品有限公司；乙方（受托方）：本单受托方。乙方应在收到本单后1个工作日内签章回传，确认加工内容及交期；调整须经双方书面确认。</td></tr>
+        <tr><th>制作要求</th><td>乙方应严格按照甲方确认的样板、产品制作说明书及生产制造单加工制作。大货制作前须提供产前板，经甲方确认后方可量产；未经甲方书面同意，不得转包。</td></tr>
+        <tr><th>供料及交付</th><td>供料方式及双方供料范围以本单备注、生产制造单及供料清单的书面约定为准。甲供材料须清点交接并妥善保管，损耗按双方书面约定执行；余料返还，因乙方原因造成的材料损失由乙方赔偿。交货地点为甲方仓库，交货前运费及相关费用由乙方承担。</td></tr>
+        <tr><th>质量验收</th><td>仓库签收仅代表收货，不代表质量验收合格；付款及初次验收不免除乙方对隐蔽缺陷的责任。因乙方原因产生质量问题，甲方可要求返工、换货、退货退款或委托第三方处理，合理费用由乙方承担。乙方应在收到通知后48小时内答复，并在双方约定期限内完成处理。</td></tr>
+        <tr><th>交付违约</th><td>乙方须按约定交期交货，每迟延一天按本次加工费的10%向甲方支付违约金，累计不超过加工费的50%。因迟延交付导致甲方损失的，乙方应全额赔偿。交付逾期5天，甲方有权解除合同；乙方除承担前述违约责任外，另按加工费总额的80%支付违约金。</td></tr>
+        <tr><th>质量责任</th><td>乙方交付货物不符合甲方确认的样板、产品制作说明书及生产制造单要求的，甲方有权扣除加工费总额的50%作为违约金；造成甲方损失的，包括甲供材料损失、客户扣款或甲方向客户赔偿等，乙方应全额赔偿。付款金额以甲方验收合格数量为准。</td></tr>
+        <tr><th>保密及尾货</th><td>乙方不得泄露甲方客户信息、图纸、样板及相关资料，不得擅自用于其他订单，不得私售带客户标识的尾货和次品。</td></tr>
+        <tr><th>廉洁合作</th><td>供应商及其人员不得向我司员工、经办人或其关联方提供、承诺或变相输送回扣、现金、红包、礼品礼券、旅游招待、个人借款、虚假佣金或其他不正当利益。公司折扣、返利须书面约定、对公结算并如实入账，严禁转入个人账户。遇员工索要回扣或要求私下交易，应拒绝并向15362651491或者contact@dg-neoprene.com举报。经核实存在商业贿赂的，我司可依法依约停止合作、解除相关合同并追偿损失；涉嫌违法犯罪的，移交有关机关。举报线索应保密，禁止报复。</td></tr>
+        <tr><th>付款约定</th><td>付款方式按本单约定执行，乙方须提供发票。加工单价所含税费、辅料及其他费用由双方书面确认；未经甲方书面确认的额外费用不予另付。款项仅支付至经核实的乙方对公账户，账户变更须正式书面通知并经甲方独立核验。</td></tr>
+        <tr><th>争议解决</th><td>因本单产生的争议，双方应协商解决；协商不成，任何一方均可向甲方所在地有管辖权的人民法院提起诉讼。本单经双方签字或盖章确认后生效。</td></tr>
+      </tbody></table>
+      <table class="purchase-sign-table"><tbody><tr><th>批示：</th><td></td><th>审核：</th><td></td><th>制表人：</th><td class="purchase-variable" data-variable-label="制表人">${purchaseToken('制表人', ['制表人','经办人','负责人'])}</td></tr><tr><th>受托方签字 / 盖章：</th><td colspan="3"></td><th>签回日期：</th><td></td></tr></tbody></table>
+    </div><p><br></p>`;
+
+  page.value = 'editor';
+  await nextTick();
+  if (editorRef.value) editorRef.value.innerHTML = editorHtml.value;
+  resetHistory(editorHtml.value);
+  editorRef.value?.focus();
+};
+
 const createPurchaseTemplate = async () => {
   if (!fieldList.value.length) await refreshFields();
   const supplierField = purchaseField('供应商名称', '供应商', '厂商名称', '厂商');
@@ -799,6 +907,7 @@ const confirmSave = async () => {
 
 const showPreview = async () => {
   await ensurePurchaseTemplateDefaults();
+  await ensureOutsourcingTemplateDefaults();
   syncEditor(true);
   previewMode.value = true;
   await nextTick();
@@ -895,19 +1004,38 @@ const exportPdf = async () => {
       const pageSliceHeight = Math.max(1, Math.floor(canvas.width * pageHeight / pageWidth));
       const sheetRect = sheets[index].getBoundingClientRect();
       const canvasScale = canvas.width / Math.max(1, sheetRect.width);
+      const canvasContext = canvas.getContext('2d');
+      let effectiveHeight = canvas.height;
+      if (canvasContext) {
+        const pixels = canvasContext.getImageData(0, 0, canvas.width, canvas.height).data;
+        let renderedBottom = 0;
+        outer: for (let y = canvas.height - 1; y >= 0; y -= 1) {
+          for (let x = 0; x < canvas.width; x += 2) {
+            const offset = (y * canvas.width + x) * 4;
+            if (pixels[offset + 3] > 0 && (pixels[offset] < 248 || pixels[offset + 1] < 248 || pixels[offset + 2] < 248)) {
+              renderedBottom = y + 1;
+              break outer;
+            }
+          }
+        }
+        if (renderedBottom) effectiveHeight = Math.min(canvas.height, renderedBottom + Math.round(24 * canvasScale));
+      }
       const detailBlocks = Array.from(sheets[index].querySelectorAll<HTMLElement>('.merged-detail-record'));
       const breakElements = detailBlocks.length
         ? detailBlocks
         : Array.from(sheets[index].querySelectorAll<HTMLElement>('tr'));
       const safeBreaks = breakElements
         .map(element => Math.round((element.getBoundingClientRect().bottom - sheetRect.top) * canvasScale))
-        .filter(position => position > 0 && position < canvas.height)
+        .filter(position => position > 0 && position < effectiveHeight)
         .sort((left, right) => left - right);
 
-      for (let sourceY = 0; sourceY < canvas.height;) {
-        const idealEnd = Math.min(sourceY + pageSliceHeight, canvas.height);
+      for (let sourceY = 0; sourceY < effectiveHeight;) {
+        // html2canvas can leave a few white pixels after an exact A4 sheet.
+        // Ignore that rounding tail so exports do not gain a blank final page.
+        if (sourceY > 0 && effectiveHeight - sourceY <= Math.ceil(canvasScale * 4)) break;
+        const idealEnd = Math.min(sourceY + pageSliceHeight, effectiveHeight);
         let pageEnd = idealEnd;
-        if (idealEnd < canvas.height) {
+        if (idealEnd < effectiveHeight) {
           const minimumUsefulEnd = sourceY + pageSliceHeight * 0.35;
           const safeEnd = [...safeBreaks].reverse().find(position => position <= idealEnd && position >= minimumUsefulEnd);
           if (safeEnd) pageEnd = safeEnd;
@@ -1010,6 +1138,11 @@ const handleImport = async (file?: File) => {
             <span class="create-icon"><el-icon><Tickets /></el-icon></span>
             <strong>采购订购单</strong>
             <span>按 HUATOP 格式创建，飞书字段可选择插入</span>
+          </button>
+          <button class="create-card outsourcing-create-card" @click="createOutsourcingTemplate">
+            <span class="create-icon"><el-icon><Tickets /></el-icon></span>
+            <strong>委托外加工单</strong>
+            <span>按橙色版格式创建，关联加工厂信息并汇总金额</span>
           </button>
         </div>
       </section>
