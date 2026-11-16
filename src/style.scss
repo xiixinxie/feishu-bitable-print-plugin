@@ -155,7 +155,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .purchase-confirm-table tr:first-child > th, .purchase-confirm-table tr:first-child > td { border-top: 0; }
 .purchase-confirm-table th { width: 16%; color: #173d6b; background: #edf2f7; }
 .purchase-terms-table { margin-top: 7px; font-size: 9.5px; line-height: 1.2; }
-.purchase-terms-table tr { height: 45px; }
+.purchase-terms-table tr { height: auto; }
+.purchase-terms-table th, .purchase-terms-table td { padding-top: 5px; padding-bottom: 5px; }
 .purchase-terms-table th { width: 12%; color: #173d6b; background: #edf2f7; }
 .purchase-terms-table td { text-align: left; }
 .purchase-sign-table { margin-top: 7px; }
@@ -173,7 +174,7 @@ button { -webkit-tap-highlight-color: transparent; }
 .outsourcing-order-template .purchase-meta-table th,
 .outsourcing-order-template .purchase-confirm-table th,
 .outsourcing-order-template .purchase-sign-table th { color: #1d2453; background: #fff; }
-.outsourcing-order-template .purchase-terms-table th { color: #1d2453; background: #eee; }
+.outsourcing-order-template .purchase-terms-table th { color: #1d2453; background: #edf2f8; }
 .outsourcing-order-template .purchase-terms-table { font-size: 9.5px; line-height: 1.2; }
 .outsourcing-order-template .purchase-meta-table th,
 .outsourcing-order-template .purchase-meta-table td,

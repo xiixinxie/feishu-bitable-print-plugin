@@ -1022,7 +1022,7 @@ const exportPdf = async () => {
     for (let index = 0; index < sheets.length; index += 1) {
       const canvas = await html2canvas(sheets[index], {
         backgroundColor: '#ffffff',
-        scale: 2,
+        scale: 3,
         useCORS: true,
         allowTaint: false,
         imageTimeout: 5000,
@@ -1081,7 +1081,7 @@ const exportPdf = async () => {
         context.drawImage(canvas, 0, sourceY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
         if (pdfPageCount > 0) pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
         const renderedHeight = sliceHeight * pageWidth / canvas.width;
-        pdf.addImage(slice.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageWidth, renderedHeight, undefined, 'FAST');
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.98), 'JPEG', 0, 0, pageWidth, renderedHeight, undefined, 'MEDIUM');
         pdfPageCount += 1;
         sourceY = pageEnd;
       }
