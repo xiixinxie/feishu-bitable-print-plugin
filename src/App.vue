@@ -955,6 +955,18 @@ const waitForImages = async (root: HTMLElement) => {
   }));
 };
 
+const getPdfExportName = () => {
+  if (isOutsourcingTemplate.value) {
+    const productionField = purchaseField('生产单号', '主单号', '单号');
+    const productionOrders = productionField
+      ? [...new Set(rows.value.map(row => row.values[productionField.id]?.text?.trim()).filter(Boolean))]
+      : [];
+    if (productionOrders.length === 1) return `${productionOrders[0]}委外加工单`;
+    if (productionOrders.length > 1) return `${productionOrders[0]}等${productionOrders.length}个生产单号委外加工单`;
+  }
+  return templateName.value || tableName.value || 'xii打印';
+};
+
 const exportPdf = async () => {
   if (pdfExporting.value) return;
   pdfExporting.value = true;
@@ -1054,7 +1066,7 @@ const exportPdf = async () => {
         sourceY = pageEnd;
       }
     }
-    const safeName = (templateName.value || tableName.value || 'xii打印').replace(/[\\/:*?"<>|]/g, '-');
+    const safeName = getPdfExportName().replace(/[\\/:*?"<>|]/g, '-');
     pdf.save(`${safeName}.pdf`);
     notify(`PDF 已导出，共 ${pdfPageCount} 页`);
   } catch (error) {

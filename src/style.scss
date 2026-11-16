@@ -168,11 +168,12 @@ button { -webkit-tap-highlight-color: transparent; }
 .outsourcing-order-template .purchase-section-title,
 .outsourcing-order-template .purchase-detail-table tfoot th,
 .outsourcing-order-template .purchase-detail-table tfoot td { color: #000; background: #fff1e4; }
-.outsourcing-order-template .purchase-detail-table th { color: #000; background: #fff1e4; }
+.outsourcing-order-template .purchase-detail-table thead th { color: #fff; background: #e77d25; }
 .outsourcing-order-template .purchase-meta-table th,
 .outsourcing-order-template .purchase-confirm-table th,
 .outsourcing-order-template .purchase-sign-table th,
 .outsourcing-order-template .purchase-terms-table th { color: #000; background: #fff1e4; }
+.outsourcing-order-template .purchase-terms-table { font-size: 7.2px; line-height: 1.2; }
 .outsourcing-order-template .purchase-meta-table th,
 .outsourcing-order-template .purchase-meta-table td,
 .outsourcing-order-template .purchase-confirm-table th,
