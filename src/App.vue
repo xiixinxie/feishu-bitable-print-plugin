@@ -358,9 +358,7 @@ const createOutsourcingTemplate = async () => {
 
   const process = purchaseToken('加工工序', ['加工项目', '加工工序', '工序', '加工内容']);
   const productionOrder = purchaseToken('生产单号', ['生产单号', '主单号', '单号']);
-  const specification = purchaseToken('尺寸/规格', ['尺寸规格', '规格', '尺寸']);
-  const color = purchaseToken('颜色', ['颜色', '色号']);
-  const product = purchaseToken('产品/材料名称', ['产品名称', '产品', '材料名称', '物料名称', '材料']);
+  const product = purchaseToken('产品', ['产品名称', '产品', '材料名称', '物料名称', '材料']);
   const quantity = purchaseToken('数量', ['加工数量', '委外数量', '数量']);
   const unit = purchaseToken('单位', ['计量单位', '单位']);
   const unitPrice = purchaseToken('加工单价', ['加工单价', '委外单价', '单价元', '单价']);
@@ -369,8 +367,8 @@ const createOutsourcingTemplate = async () => {
   const deliveryDate = purchaseToken('要求交期', ['要求交期', '交货日期', '交期']);
   const remark = purchaseToken('备注', ['加工备注', '备注', '要求']);
   const picture = purchaseToken('产品图片', ['产品图片', '图片', '附件']);
-  const labels = ['加工工序','生产单号','尺寸/规格','颜色','产品/材料名称','数量','单位','加工单价','加工金额','下单日期','要求交期','备注/图片'];
-  const detailCells = [process, productionOrder, specification, color, product, quantity, unit, unitPrice, amount, orderDate, deliveryDate, `${remark}${picture}`]
+  const labels = ['加工工序','生产单号','产品','数量','单位','加工单价','加工金额','下单日期','要求交期','备注/图片'];
+  const detailCells = [process, productionOrder, product, quantity, unit, unitPrice, amount, orderDate, deliveryDate, `${remark}${picture}`]
     .map((token, index) => `<td class="purchase-detail-cell" data-variable-label="${labels[index]}">${token}</td>`)
     .join('');
   const factoryName = purchaseToken('受托方名称', ['受托方加工厂', '受托方', '加工厂', '外发厂', '供应商']);
@@ -392,10 +390,10 @@ const createOutsourcingTemplate = async () => {
       </tbody></table>
       <div class="purchase-section-title">外 加 工 明 细</div>
       <table class="template-table purchase-detail-table" data-record-layout="list">
-        <colgroup><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:7%"><col style="width:14%"><col style="width:6%"><col style="width:5%"><col style="width:8%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:7%"></colgroup>
-        <thead><tr><th>加工工序</th><th>生产单号</th><th>尺寸/规格</th><th>颜色</th><th>产品／材料名称</th><th>数量</th><th>单位</th><th>加工单价<br>（RMB）</th><th>加工金额<br>（RMB）</th><th>下单日期</th><th>要求交期</th><th>备注/图片</th></tr></thead>
+        <colgroup><col style="width:9%"><col style="width:11%"><col style="width:18%"><col style="width:7%"><col style="width:7%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:8%"></colgroup>
+        <thead><tr><th>加工工序</th><th>生产单号</th><th>产品／材料名称</th><th>数量</th><th>单位</th><th>加工单价<br>（RMB）</th><th>加工金额<br>（RMB）</th><th>下单日期</th><th>要求交期</th><th>备注/图片</th></tr></thead>
         <tbody><tr data-record-repeat="true">${detailCells}</tr></tbody>
-        <tfoot><tr><th colspan="8">合计加工金额（人民币）</th><td>${tokenHtml('单元格数值合计', 'count')}</td><td colspan="2" class="purchase-total-unit">RMB</td><td></td></tr></tfoot>
+        <tfoot><tr><th colspan="6">合计加工金额（人民币）</th><td colspan="2">${tokenHtml('单元格数值合计', 'count')}</td><td colspan="2" class="purchase-total-unit">RMB</td></tr></tfoot>
       </table>
       <div class="purchase-uppercase-row"><strong>人民币大写：</strong><span class="purchase-variable" data-variable-label="人民币大写金额">${tokenHtml('人民币大写金额', 'uppercase-amount')}</span></div>
       <table class="purchase-confirm-table"><tbody><tr><th>加工备注 / 要求</th><td class="purchase-variable" data-variable-label="加工备注">${purchaseToken('加工备注', ['加工备注','加工要求','备注','要求'])}</td></tr><tr><th>受托方确认交期</th><td class="purchase-variable" data-variable-label="受托方确认交期">${purchaseToken('受托方确认交期', ['受托方确认交期','确认交期'])}</td><th>回复日期</th><td class="purchase-variable" data-variable-label="回复日期">${purchaseToken('回复日期', ['回复日期','确认日期'])}</td></tr></tbody></table>
