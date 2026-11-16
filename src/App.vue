@@ -965,17 +965,24 @@ const getPdfExportName = () => {
     if (productionOrders.length > 1) return `${productionOrders[0]}等${productionOrders.length}个生产单号委外加工单`;
   }
   if (isPurchaseTemplate.value) {
-    const rendered = document.createElement('div');
-    rendered.innerHTML = previewPages.value[0] || '';
-    const renderedOrderNumber = rendered
-      .querySelector<HTMLElement>('[data-variable-label="订购单号"]')
-      ?.textContent?.trim();
-    const orderNumberField = purchaseField('订购单号', '采购单号', '采购编号', '单号');
-    const fieldOrderNumber = orderNumberField
-      ? rows.value.find(row => row.values[orderNumberField.id]?.text?.trim())?.values[orderNumberField.id]?.text?.trim()
+    const productionField = purchaseField('生产单号', '主单号', '款式明细', '单号');
+    const supplierField = purchaseField('供应商', '厂商名称', '受托方（加工厂）', '受托方');
+    const productionOrders = productionField
+      ? [...new Set(rows.value.map(row => row.values[productionField.id]?.text?.trim()).filter(Boolean))]
+      : [];
+    const supplierName = supplierField
+      ? rows.value.find(row => row.values[supplierField.id]?.text?.trim())?.values[supplierField.id]?.text?.trim() || ''
       : '';
-    const orderNumber = fieldOrderNumber || renderedOrderNumber;
-    if (orderNumber) return `${orderNumber}-材料采购单`;
+    const supplierShortName = supplierName
+      .replace(/^(?:中国)?(?:广东省)?(?:东莞市|深圳市|广州市|惠州市|佛山市|中山市|珠海市)/, '')
+      .replace(/(?:橡胶制品|塑胶制品|运动用品|体育用品|五金制品|纺织品|鞋材|包装|新材料|实业|贸易|科技|工贸).*/, '')
+      .replace(/(?:有限责任公司|有限公司|公司)$/, '')
+      .trim();
+    const productionLabel = productionOrders.length > 1
+      ? `${productionOrders[0]}等${productionOrders.length}个生产单号`
+      : productionOrders[0] || '未命名单号';
+    if (supplierShortName) return `${productionLabel}-${supplierShortName}-材料采购单`;
+    return `${productionLabel}-材料采购单`;
   }
   return templateName.value || tableName.value || 'xii打印';
 };
